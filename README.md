@@ -12,6 +12,7 @@ Terraform scaffold consists of a terraform wrapper bash script, a bootstrap scri
 | bootstrap/bootstrap.sh | The S3 bucket bootstrapping script |
 | components/ |	The location for terraform "components". Terraform code intended to be run directly as a root module. |
 | etc/ | The location for environment-specific terraform variables files:<br/>`env_{region}_{environment}.tfvars`<br/>`versions_{region}_{environment}.tfvars` |
+| lib/ | Optional useful libraries, such as Jenkins pipeline groovy script |
 | modules/ | The optional location for terraform modules called by components |
 
 ## Concepts & Assumptions

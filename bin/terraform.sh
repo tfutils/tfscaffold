@@ -331,7 +331,6 @@ case "${action}" in
       -input=false \
       ${refresh} \
       -module-depth=-1 \
-      -var "env=${environment}" \
       ${tf_var_files} \
       ${extra_args} \
       ${destroy} \
