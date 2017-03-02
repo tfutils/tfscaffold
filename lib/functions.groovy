@@ -51,3 +51,5 @@ def tf_scaffold(aws_creds, action, project, environment, component, bucket_prefi
     } //withEnv
   } //withCredentials
 }
+
+return this
