@@ -384,7 +384,6 @@ case "${action}" in
       terraform "${action}" \
         -input=false \
         ${refresh} \
-        -var "env=${environment}" \
         ${tf_var_files} \
         -parallelism=10 \
         ${extra_args} \
