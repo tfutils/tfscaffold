@@ -4,7 +4,6 @@ variable "aws_account_id" {
 
 variable "region" {
   type    = "string"
-  default = "eu-west-1"
 }
 
 variable "environment" {
