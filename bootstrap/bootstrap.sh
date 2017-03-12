@@ -131,6 +131,7 @@ fi;
 
   # Create bootstrap bucket
   terraform apply \
+    -var "region=${region}" \
     -var "project=${project}" \
     -var "bucket_name=${bucket}" \
     -var "aws_account_id=${aws_account_id}" \
