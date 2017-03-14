@@ -5,21 +5,29 @@
 # - handles remote state
 # - uses consistent .tfvars files for each environment
 
+##
+# Set Script Version
+##
+readonly script_ver="1.0.0";
+
+##
 # Standardised failure function
+##
 function error_and_die {
   echo -e "ERROR: ${1}" >&2;
   exit 1;
 };
 
-# Determine where I am and from that derive basepath and project name
-script_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
-base_path="${script_path%%\/bin}";
-project_name_default="${base_path##*\/}";
+##
+# Print Script Version
+##
+function version() {
+  echo "${script_ver}";
+}
 
-status=0;
-
-echo "Args " $*;
-
+##
+# Print Usage Text
+##
 function usage() {
 
 cat <<EOF
@@ -35,10 +43,13 @@ Usage: ${0} \\
   <additional arguments to forward to the terraform binary call>
 
 action:
- - plan
- - apply
- - plan-destroy
- - destroy
+ - Special actions:
+    * plan / plan-destroy
+    * apply / destroy
+    * graph
+    * taint / untaint
+- Generic actions:
+    * See https://www.terraform.io/docs/commands/
 
 bucket_prefix (optional):
  Defaults to: "\${project_name}-terraformscaffold"
@@ -71,14 +82,13 @@ additional arguments:
 EOF
 };
 
-# Ensure script console output is separated by blank line at top and bottom to improve readability
-trap echo EXIT;
-echo;
-
-# Execute getopt
+##
+# Execute getopt and process script arguments
+##
+readonly raw_arguments="${*}";
 ARGS=$(getopt \
-         -o a:b:c:e:i:p:r: \
-         -l "action:,bucket-prefix:,build-id:,component:,environment:,project:,region:" \
+         -o hva:b:c:e:i:p:r: \
+         -l "help,version,action:,bucket-prefix:,build-id:,component:,environment:,project:,region:" \
          -n "${0}" \
          -- \
          "$@");
@@ -101,6 +111,14 @@ declare project;
 
 while true; do
   case "${1}" in
+    -h|--help)
+      usage;
+      exit 0;
+      ;;
+    -v|--version)
+      version;
+      exit 0;
+      ;;
     -c|--component)
       shift;
       if [ -n "${1}" ]; then
@@ -159,6 +177,27 @@ done;
 
 declare extra_args="${@}"; # All arguments supplied after "--"
 
+##
+# Script Set-Up
+##
+
+# Determine where I am and from that derive basepath and project name
+script_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
+base_path="${script_path%%\/bin}";
+project_name_default="${base_path##*\/}";
+
+status=0;
+
+echo "Args ${raw_arguments}";
+
+# Ensure script console output is separated by blank line at top and bottom to improve readability
+trap echo EXIT;
+echo;
+
+##
+# Munge Params
+##
+
 # Set Region from args or environment. Exit if unset.
 readonly region="${region_arg:-${AWS_DEFAULT_REGION}}";
 [ -n "${region}" ] \
@@ -214,10 +253,15 @@ else
   component_path="$(cd "${component_path}" && pwd)";
 fi;
 
+[ -d "${component_path}" ] || error_and_die "Component ${component} does not exist";
+
 ## Debug
 #echo $component_path;
 
+##
 # Begin parameter-dependent logic
+##
+
 case "${action}" in
   apply)
     refresh="-refresh=true";
@@ -227,19 +271,15 @@ case "${action}" in
     force='-force';
     refresh="-refresh=true";
     ;;
-  graph) ;;
-  output) ;;
-  plan) ;;
+  plan)
+    refresh="-refresh=true";
+    ;;
   plan-destroy)
     action="plan";
     destroy="-destroy";
     refresh="-refresh=true";
     ;;
-  refresh) ;;
-  show) ;;
   *)
-    usage
-    error_and_die "Invalid action parameter";
     ;;
 esac;
 
@@ -258,14 +298,21 @@ if [ -f "pre_apply.sh" ]; then
 fi;
 
 # Pull down secret TFVAR file from S3
+# Anti-pattern and security warning: This secrets mechanism provides very little additional security.
+# It permits you to inject secrets directly into terraform without storing them in source control or unencrypted in S3.
+# Secrets will still be stored in all copies of your state file - which will be stored on disk wherever this script is run and in S3.
+# This script does not currently support encryption of state files.
+# Use this feature only if you're sure it's the right pattern for your use case.
 declare -a secrets=();
-readonly secret_file_name="secret_${region}_${environment}.tfvars.enc";
-aws s3 ls s3://${bucket}/${project}/secrets/${secret_file_name} >/dev/null 2>&1;
+readonly secrets_file_name="secret.tfvars.enc";
+readonly secrets_file_path="build/${secrets_file_name}";
+aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
 if [ $? -eq 0 ]; then
   mkdir -p build;
-  aws s3 cp s3://${bucket}/${project}/secrets/${secret_file_name} build/${secret_file_name};
-  if [ -f "build/${secret_file_name}" ]; then
-    secrets=($(aws kms decrypt --ciphertext-blob fileb://build/${secret_file_name} --output text --query Plaintext | base64 --decode));
+  aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
+    || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name}";
+  if [ -f "${secrets_file_path}" ]; then
+    secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
   fi;
 fi;
 
@@ -276,7 +323,6 @@ if [ -n "${secrets[0]}" ]; then
     if [[ "${secret_line}" =~ ${secret_regex} ]]; then
       var_key="${secret_line%=*}";
       var_val="${secret_line##*=}";
-      # Better ways in bash4; but not wanting a bash4 dependency
       eval export TF_VAR_${var_key}="${var_val}";
       ((secret_count++));
     else
@@ -285,6 +331,20 @@ if [ -n "${secrets[0]}" ]; then
   done;
 fi;
     
+# Pull down additional dynamic plaintext tfvars file from S3
+# Anti-pattern warning: Your variables should almost always be in source control.
+# There are a very few use cases where you need constant variability in input variables,
+# and even in those cases you should probably pass additional -var parameters to this script
+# from your automation mechanism.
+# Use this feature only if you're sure it's the right pattern for your use case.
+readonly dynamic_file_name="dynamic.tfvars";
+readonly dynamic_file_path="build/${dynamic_file_name}";
+aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
+if [ $? -eq 0 ]; then
+  aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
+    || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name}";
+fi;
+
 # Use versions TFVAR files if exists
 readonly versions_file_name="versions_${region}_${environment}.tfvars";
 readonly versions_file_path="${base_path}/etc/${versions_file_name}";
@@ -293,16 +353,30 @@ readonly versions_file_path="${base_path}/etc/${versions_file_name}";
 # Could potentially support non-existent tfvars, but choosing not to.
 readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
 if [ ! -f "${env_file_path}" ]; then
-  error_and_die "Unknown environment.  ${env_file_path} does not exist.";
+  error_and_die "Unknown environment. ${env_file_path} does not exist.";
 fi;
+
+# Collect the paths of the variables files to use
+declare tf_var_files;
+declare -a tf_var_file_paths;
+
+tf_var_file_paths=("${env_file_path}");
+[ -f "${versions_file_path}" ] && tf_var_file_paths+=("${versions_file_path}");
+[ -f "${dynamic_file_path}" ] && tf_var_file_paths+=("${dynamic_file_path}");
+
+# Warn on duplication
+duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-9_\-]\+\)\s*=.*$/\1/p' | sort | uniq -d)";
+echo -e "###########\n# WARNING #\n###########\nThe following input variables appear to be duplicated:\n${duplicate_variables}\n\nThis could lead to unexpected behaviour.\n###########";
 
 # Build up the tfvars arguments for terraform command line
-readonly mandatory_tfvars="-var-file=${env_file_path}";
-if [ -f "${versions_file_path}" ]; then
-  readonly optional_tfvars="${tf_var_files} -var-file=${versions_file_path}";
-fi;
-readonly tf_var_files="${mandatory_tfvars} ${optional_tfvars}";
+for file_path in "${tf_var_file_paths[@]}"; do
+  tf_var_files+=" -var-file=${file_path}";
+done;
 
+##
+# Start Doing Real Things
+##
+ 
 # Configure remote state storage
 echo "Setting up S3 remote state from s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate";
 terraform remote config \
@@ -317,7 +391,7 @@ terraform get -update=true \
   || error_and_die "Terraform Get failed";
 
 case "${action}" in
-  'plan'*)
+  'plan')
     if [ -n "${build_id}" ]; then
       mkdir -p build;
 
@@ -344,22 +418,13 @@ case "${action}" in
 
     exit ${status};
     ;;
-  'show')
-    terraform show;
-    exit $?;
-    ;;
-  'output')
-    # Show Output variables
-    terraform output;
-    exit $?;
-    ;;
   'graph')
-    mkdir -p build;
-    terraform graph -draw-cycles | dot -Tpng > ${module_name}-diagram.png;
-    echo Generated: build/${module_name}-diagram.png;
-    terraform graph -draw-cycles -verbose | dot -Tpng > build/${module_name}-diagram-verbose.png;
-    echo Generated: build/${module_name}-diagram-verbose.png;
-    exit $?;
+    mkdir -p build || error_and_die "Failed to create output directory '$(pwd)/build'";
+    terraform graph -draw-cycles | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}.png \
+      || error_and_die "Terraform simple graph generation failed";
+    terraform graph -draw-cycles -verbose | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}-verbose.png \
+      || error_and_die "Terraform verbose graph generation failed";
+    exit 0;
     ;;
   'apply'|'destroy')
     if [ -n "${build_id}" ]; then
@@ -392,7 +457,7 @@ case "${action}" in
     fi;
 
     # Let's just be sure...
-    terraform remote push;
+    terraform remote push || error_and_die "Failed to push remote state. Panic!";
 
     if [ ${exit_code} -ne 0 ]; then
       error_and_die "Terraform ${action} failed with exit code ${exit_code}"
@@ -403,8 +468,17 @@ case "${action}" in
       exit $?;
     fi
     ;;
+  '*taint')
+    terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed."
+ 
+    # Let's just be sure...
+    terraform remote push || error_and_die "Failed to push remote state. Panic!";
+    ;;
   *)
-    error_and_die "U WOT M8?";
+    echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";
+    echo -e "\tterraform ${action} ${extra_args}";
+    terraform "${action}" ${extra_args} \
+      || error_and_die "Terraform ${action} failed.";
     ;;
 esac;
 
