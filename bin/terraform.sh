@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.0.0";
+readonly script_ver="1.0.1";
 
 ##
 # Standardised failure function
@@ -366,7 +366,16 @@ tf_var_file_paths=("${env_file_path}");
 
 # Warn on duplication
 duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-9_\-]\+\)\s*=.*$/\1/p' | sort | uniq -d)";
-echo -e "###########\n# WARNING #\n###########\nThe following input variables appear to be duplicated:\n${duplicate_variables}\n\nThis could lead to unexpected behaviour.\n###########";
+[ -n "${duplicate_variables}" ] \
+  && echo -e "
+###########
+# WARNING #
+###########
+The following input variables appear to be duplicated:
+${duplicate_variables}
+
+This could lead to unexpected behaviour.
+###########";
 
 # Build up the tfvars arguments for terraform command line
 for file_path in "${tf_var_file_paths[@]}"; do

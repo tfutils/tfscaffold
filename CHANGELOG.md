@@ -1,3 +1,7 @@
+## 1.0.1 (15/03/2017)
+
+ * Bugfix: Duplicate variable warning conditional to presence of duplicates
+
 ## 1.0.0 (14/03/2017)
 
  * Add CHANGELOG.md
