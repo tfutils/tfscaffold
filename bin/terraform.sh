@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.0.1";
+readonly script_ver="1.1.0";
 
 ##
 # Standardised failure function
@@ -385,19 +385,36 @@ done;
 ##
 # Start Doing Real Things
 ##
+
+# Really Hashicorp? Really?!
+#
+# In order to work with terraform >=0.9.2 (I say 0.9.2 because 0.9 prior
+# to 0.9.2 is barely usable due to key bugs and missing features)
+# we now need to do some ugly things to our terraform remote backend configuration.
+# The long term hope is that they will fix this, and maybe remove the need for it
+# altogether by supporting interpolation in the backend config stanza.
+#
+# For now we're left with this garbage, and no more support for <0.9.0.
+if [ -f backend_terraformscaffold.tf ]; then
+  echo -e "WARNING: Overwriting backend_terraformscaffold.tf" >&2;
+fi;
+
+echo -e "terraform {
+  backend \"s3\" {
+    region = \"${region}\"
+    bucket = \"${bucket}\"
+    key    = \"${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate\"
+  }
+}" > backend_terraformscaffold.tf \
+  || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
+
+# Nix the horrible hack on exit
+trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
  
 # Configure remote state storage
 echo "Setting up S3 remote state from s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate";
-terraform remote config \
-  -backend=s3 \
-  -backend-config="region=${region}" \
-  -backend-config="bucket=${bucket}" \
-  -backend-config="key=${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate" \
-  || error_and_die "Terraform remote config failed";
-
-# Fetch terraform modules into .terraform/modules
-terraform get -update=true \
-  || error_and_die "Terraform Get failed";
+terraform init \
+  || error_and_die "Terraform init failed";
 
 case "${action}" in
   'plan')
@@ -465,9 +482,6 @@ case "${action}" in
       exit_code=$?;
     fi;
 
-    # Let's just be sure...
-    terraform remote push || error_and_die "Failed to push remote state. Panic!";
-
     if [ ${exit_code} -ne 0 ]; then
       error_and_die "Terraform ${action} failed with exit code ${exit_code}"
     fi;
@@ -479,9 +493,6 @@ case "${action}" in
     ;;
   '*taint')
     terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed."
- 
-    # Let's just be sure...
-    terraform remote push || error_and_die "Failed to push remote state. Panic!";
     ;;
   *)
     echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";

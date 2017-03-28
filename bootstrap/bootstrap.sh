@@ -137,17 +137,32 @@ fi;
     -var "aws_account_id=${aws_account_id}" \
     || error_and_die "Terraform apply failed";
 
-  # Setup Terraform Remote State
-  terraform remote config \
-    -backend=S3 \
-    -backend-config="region=${region}" \
-    -backend-config="bucket=${bucket}" \
-    -backend-config="key=${project}/${aws_account_id}/${region}/bootstrap/bootstrap.tfstate" \
-    || error_and_die "Terraform remote config failed";
+  # Really Hashicorp? Really?!
+  #
+  # In order to work with terraform >=0.9.2 (I say 0.9.2 because 0.9 prior
+  # to 0.9.2 is barely usable due to key bugs and missing features)
+  # we now need to do some ugly things to our terraform remote backend configuration.
+  # The long term hope is that they will fix this, and maybe remove the need for it
+  # altogether by supporting interpolation in the backend config stanza.
+  #
+  # For now we're left with this garbage, and no more support for <0.9.0.
+  if [ -f backend_terraformscaffold.tf ]; then
+    echo -e "WARNING: Overwriting backend_terraformscaffold.tf" >&2;
+  fi;
+
+  echo -e "terraform {
+  backend \"s3\" {
+    region = \"${region}\"
+    bucket = \"${bucket}\"
+    key    = \"${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate\"
+  }
+}" > backend_terraformscaffold.tf \
+  || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
 
   # Push Terraform Remote State to S3
   terraform remote push \
     || error_and_die "Terraform remote push failed";
 
+  rm -f backend_terraformscaffold.tf
 ) || exit $?;
 
