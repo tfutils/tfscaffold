@@ -1,3 +1,7 @@
+## 1.1.2 (06/04/2017)
+
+ * Provide a case for import that requires the variable file parameters
+
 ## 1.1.1 (06/04/2017)
 
  * Fix 0.9.2+ support for bootstrap.sh

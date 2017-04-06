@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.1.1";
+readonly script_ver="1.1.2";
 
 ##
 # Standardised failure function
@@ -492,7 +492,10 @@ case "${action}" in
     fi
     ;;
   '*taint')
-    terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed."
+    terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed.";
+    ;;
+  'import')
+    terraform "${action}" ${tf_var_files} ${extra_args} || error_and_die "Terraform ${action} failed.";
     ;;
   *)
     echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";
