@@ -1,3 +1,7 @@
+## 1.1.1 (06/04/2017)
+
+ * Fix 0.9.2+ support for bootstrap.sh
+
 ## 1.1.0 (28/03/2017)
 
  * Move from terraform-0.8 to terraform-0.9

@@ -154,15 +154,17 @@ fi;
   backend \"s3\" {
     region = \"${region}\"
     bucket = \"${bucket}\"
-    key    = \"${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate\"
+    key    = \"${project}/${aws_account_id}/${region}/bootstrap/bootstrap.tfstate\"
   }
 }" > backend_terraformscaffold.tf \
   || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
 
   # Push Terraform Remote State to S3
-  terraform remote push \
-    || error_and_die "Terraform remote push failed";
+  echo "yes" | terraform init || error_and_die "Terraform init failed";
 
-  rm -f backend_terraformscaffold.tf
+  rm -f backend_terraformscaffold.tf;
+  rm -f terraform.tfstate # Prime not the backup
+  rm -rf .terraform;
+
 ) || exit $?;
 
