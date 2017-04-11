@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.1.2";
+readonly script_ver="1.1.3";
 
 ##
 # Standardised failure function
@@ -289,8 +289,15 @@ rm -rf ${component_path}/.terraform/terraform.tfstate*;
 
 # Make sure we're running in the component directory
 cd "${component_path}";
-
 readonly component_name=$(basename ${component_path});
+
+# Check for presence of tfenv (https://github.com/kamatama41/tfenv)
+# and a .terraform-version file. If both present, ensure required
+# version of terraform for this component is installed automagically.
+tfenv_bin="$(which tfenv 2>/dev/null)";
+if [[ -n "${tfenv_bin}" && -x "${tfenv_bin}" && -f .terraform-version ]]; then
+  ${tfenv_bin} install;
+fi;
 
 if [ -f "pre_apply.sh" ]; then
   bash pre_apply.sh "${region}" "${environment}" "${action}";
