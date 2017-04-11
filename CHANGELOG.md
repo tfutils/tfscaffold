@@ -1,3 +1,7 @@
+## 1.1.3 (12/04/2017)
+
+ * Support the use of .terraform-version file in components when in the presence of [tfenv](https://github.com/kamatama41/tfenv)
+
 ## 1.1.2 (06/04/2017)
 
  * Provide a case for import that requires the variable file parameters
