@@ -31,7 +31,15 @@ Scaffold uses AWS S3 for storage of tfstate files. The bucket and location are s
 
 ### Variables Files: Environment & Versions
 
-Scaffold provides a logical separation of two types of environment variable. Standard static variables and frequently-changing versions variables. This seperation is purely logical, not functional. It makes no functional difference in which file a variable lives, or even whether a versions variables file exists; but it provides the capacity to seperate out mostly static variables that define the construction of the environment from variables that could change on each apply providing new AMI IDs, or dockerised application versions or database snapshot IDs when recreating development and testing databases.
+Scaffold provides a logical separation of several types of environment variable:
+ * Global variables
+ * Region-scoped global variables
+ * Static environment variables
+ * Frequently-changing versions variables
+ * Dynamic (S3 stored) variables
+ * Secret (S3 stored, KMS encrypted variables - available but not recommended)
+
+This seperation is purely logical, not functional. It makes no functional difference in which file a variable lives, or even whether a versions variables file exists; but it provides the capacity to seperate out mostly static variables that define the construction of the environment from variables that could change on each apply providing new AMI IDs, or dockerised application versions or database snapshot IDs when recreating development and testing databases.
 
 ### AWS Credentials
 

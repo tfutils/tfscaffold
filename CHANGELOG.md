@@ -1,3 +1,7 @@
+## 1.1.4 (16/05/2017)
+
+ * Global and Region scoped variables files
+
 ## 1.1.3 (12/04/2017)
 
  * Support the use of .terraform-version file in components when in the presence of [tfenv](https://github.com/kamatama41/tfenv)

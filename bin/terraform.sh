@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.1.3";
+readonly script_ver="1.1.4";
 
 ##
 # Standardised failure function
@@ -363,11 +363,29 @@ if [ ! -f "${env_file_path}" ]; then
   error_and_die "Unknown environment. ${env_file_path} does not exist.";
 fi;
 
+# Check for presence of a global variables file, and use it if readable
+readonly global_vars_file_name="global.tfvars";
+readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
+
+# Check for presence of a region variables file, and use it if readable
+readonly region_vars_file_name="${region}.tfvars";
+readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
+
 # Collect the paths of the variables files to use
 declare tf_var_files;
 declare -a tf_var_file_paths;
 
-tf_var_file_paths=("${env_file_path}");
+# Use Global and Region first, to allow potential for terraform to do the
+# honourable thing and override global and region settings with environment
+# specific ones; however we do not officially support the same variable
+# being declared in multiple locations, and we warn when we find any duplicates
+[ -f "${global_vars_file_path}" ] && tf_var_file_paths+=("${global_vars_file_path}");
+[ -f "${region_vars_file_path}" ] && tf_var_file_paths+=("${region_vars_file_path}");
+
+# We've already checked this is readable and its presence is mandatory
+tf_var_file_paths+=("${env_file_path}");
+
+# If present and readable, use versions and dynamic variables too
 [ -f "${versions_file_path}" ] && tf_var_file_paths+=("${versions_file_path}");
 [ -f "${dynamic_file_path}" ] && tf_var_file_paths+=("${dynamic_file_path}");
 
@@ -379,9 +397,16 @@ duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-
 # WARNING #
 ###########
 The following input variables appear to be duplicated:
+
 ${duplicate_variables}
 
-This could lead to unexpected behaviour.
+This could lead to unexpected behaviour. Overriding of variables has
+previously been unpredictable and is not currently supported, but it
+may work.
+
+Recent changes to terraform might give you useful overriding and
+map-merging functionality, please use with caution and report back
+on your successes & failures.
 ###########";
 
 # Build up the tfvars arguments for terraform command line
