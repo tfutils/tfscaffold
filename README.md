@@ -8,12 +8,13 @@ Terraform scaffold consists of a terraform wrapper bash script, a bootstrap scri
 
 | Thing	| Things about the Thing |
 |-------|------------------------|
-| bin/terraform.sh | The master terraform wrapper script |
-| bootstrap/bootstrap.sh | The S3 bucket bootstrapping script |
+| bin/terraform.sh | The terraformscaffold script |
+| bootstrap/ | The bootstrap terraform code used for creating the terraformscaffold S3 bucket |
 | components/ |	The location for terraform "components". Terraform code intended to be run directly as a root module. |
 | etc/ | The location for environment-specific terraform variables files:<br/>`env_{region}_{environment}.tfvars`<br/>`versions_{region}_{environment}.tfvars` |
 | lib/ | Optional useful libraries, such as Jenkins pipeline groovy script |
 | modules/ | The optional location for terraform modules called by components |
+| src/ | The optional location for source files, e.g. source for lambda functions zipped up into artefacts inside components |
 
 ## Concepts & Assumptions
 
@@ -63,17 +64,28 @@ On invocation, Scaffold checks for a file at _s3://${bucket}/${project}/secrets/
 
 ## Usage
 ### Bootstrapping
-Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a script specifically designed to run a basic apply of the bootstrap code to create the bucket, and then configures the created bucket as a remote state location for itself. Once the bucket has been created, it can then be used for any terraform apply for the specific combination of project, region and AWS account.
+Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket and then configure the bucket as a remote state location for itself. nd upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
 
-It is not recommended to modify the bootstrap code after creation as direct application of modified bootstrap code risks the integrity of the state files stored in the bucket; however this can be mitigated by configuring synchronisation with a master backup bucket external to Scaffold management.
+It is not recommended to modify the bootstrap code after creation as it risks the integrity of the state files stored in the bucket that manage other deployments; however this can be mitigated by configuring synchronisation with a master backup bucket external to Scaffold management.
 
-The bootstrap script lives at bootstrap/bootstrap.sh and its usage as of 25/01/2017 is:
+Bootstrapping usage:
+
+```bash
+bin/bootstrap.sh \
+    -p/--project `project` \
+    -b/--bucket-prefix `bucket_prefix` \
+    -r/--region `region` \
+    --bootstrap \
+    -a/--action plan
+```
 
 ```bash
 bootstrap/bootstrap.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
-    -r/--region `region`
+    -r/--region `region` \
+    --bootstrap \
+    -a/--action apply
 ```
 
 Where:
@@ -81,30 +93,9 @@ Where:
 * `bucket_prefix` (optional - use only with caution): Defaults to: `${project}-terraformscaffold"`
 * `region` (optional): Defaults to value of the AWS_DEFAULT_REGION environment variable
 
-Aside from the parameter management and other simple bash constructs, the bootstrapping process in the script is three basic steps:
-
-```bash
-# Create bootstrap bucket
-terraform apply \
-  -var "project=${project}" \
-  -var "bucket_name=${bucket}" \
-  -var "aws_account_id=${aws_account_id}" 
-
-# Setup Terraform Remote State
-terraform remote config \
-  -backend=S3 -backend-config="region=${region}" \
-  -backend-config="bucket=${bucket}" \
-  -backend-config="key=${project}/${aws_account_id}/${region}/bootstrap/bootstrap.tfstate"
-
-# Push Terraform Remote State to S3
-terraform remote push
-```
-
-On the to-do list for future development is to make the bootstrap script check for the presence of an existing bucket and state file, and - if found - to configure it as the remote state prior to application. The current implementation assumes that you will only run bootstrap once, or if you run it a second time, you know what you are doing and have prepared the presence of the state file if it is not still present from the initial run.
-
 ### Running
 
-The main scaffold invocation script is bin/terraform.sh. Once a state bucket has been bootstrapped, bin/terraform.sh can be run to apply terraform code. Its usage as of 25/01/2017 is:
+The terraformscaffold script is invoked as bin/terraform.sh. Once a state bucket has been bootstrapped, bin/terraform.sh can be run to apply terraform code. Its usage as of 25/01/2017 is:
 
 ```bash
 bin/terraform.sh \

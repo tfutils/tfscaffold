@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.1.4";
+readonly script_ver="1.2.0";
 
 ##
 # Standardised failure function
@@ -88,7 +88,7 @@ EOF
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
          -o hva:b:c:e:i:p:r: \
-         -l "help,version,action:,bucket-prefix:,build-id:,component:,environment:,project:,region:" \
+         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,project:,region:" \
          -n "${0}" \
          -- \
          "$@");
@@ -101,6 +101,7 @@ fi;
 
 eval set -- "${ARGS}";
 
+declare bootstrap="false";
 declare component_arg;
 declare region_arg;
 declare environment_arg;
@@ -168,6 +169,10 @@ while true; do
         shift;
       fi;
       ;;
+    --bootstrap)
+      shift;
+      bootstrap="true"
+      ;; 
     --)
       shift;
       break;
@@ -206,15 +211,25 @@ readonly region="${region_arg:-${AWS_DEFAULT_REGION}}";
 [ -n "${project}" ] \
   || error_and_die "Required argument -p/--project not specified";
 
-# Validate component to work with
-[ -n "${component_arg}" ] \
-  || error_and_die "Required argument missing: -c/--component";
-readonly component="${component_arg}";
+# Bootstrapping is special
+if [ "${bootstrap}" == "true" ]; then
+  [ -n "${component_arg}" ] \
+    && error_and_die "The --bootstrap parameter and the -c/--component parameter are mutually exclusive";
+  [ -n "${environment_arg}" ] \
+    && error_and_die "The --bootstrap parameter and the -e/--environment parameter are mutually exclusive";
+  [ -n "${build_id}" ] \
+    && error_and_die "The --bootstrap parameter and the -i/--build-id parameter are mutually exclusive. We do not currently support plan files for bootstrap";
+else
+  # Validate component to work with
+  [ -n "${component_arg}" ] \
+    || error_and_die "Required argument missing: -c/--component";
+  readonly component="${component_arg}";
 
-# Validate environment to work with
-[ -n "${environment_arg}" ] \
-  || error_and_die "Required argument missing: -e/--environment";
-readonly environment="${environment_arg}";
+  # Validate environment to work with
+  [ -n "${environment_arg}" ] \
+    || error_and_die "Required argument missing: -e/--environment";
+  readonly environment="${environment_arg}";
+fi
 
 [ -n "${action}" ] \
   || error_and_die "Required argument missing: -a/--action";
@@ -244,7 +259,12 @@ else
   echo -e "No bucket prefix specified. Using S3 bucket s3://${bucket}";
 fi;
 
-declare component_path="${base_path}/components/${component}";
+declare component_path;
+if [ "${bootstrap}" == "true" ]; then
+  component_path="${base_path}/bootstrap";
+else
+  component_path="${base_path}/components/${component}";
+fi;
 
 # Get the absolute path to the component
 if [[ "${component_path}" != /* ]]; then
@@ -253,7 +273,7 @@ else
   component_path="$(cd "${component_path}" && pwd)";
 fi;
 
-[ -d "${component_path}" ] || error_and_die "Component ${component} does not exist";
+[ -d "${component_path}" ] || error_and_die "Component path ${component_path} does not exist";
 
 ## Debug
 #echo $component_path;
@@ -283,9 +303,8 @@ case "${action}" in
     ;;
 esac;
 
-# Clear the cached terraform state (we want to pull the state from the remote,
-# and also it can be different per-env)
-rm -rf ${component_path}/.terraform/terraform.tfstate*;
+# Clear cache
+rm -rf ${component_path}/.terraform;
 
 # Make sure we're running in the component directory
 cd "${component_path}";
@@ -299,120 +318,138 @@ if [[ -n "${tfenv_bin}" && -x "${tfenv_bin}" && -f .terraform-version ]]; then
   ${tfenv_bin} install;
 fi;
 
-if [ -f "pre_apply.sh" ]; then
-  bash pre_apply.sh "${region}" "${environment}" "${action}";
-  ((status=status+"$?"));
-fi;
+# Regardless of bootstrapping or not, we'll be using this string.
+# If bootstrapping, we will fill it with variables,
+# if not we will fill it with variable file parameters
+declare tf_var_params;
 
-# Pull down secret TFVAR file from S3
-# Anti-pattern and security warning: This secrets mechanism provides very little additional security.
-# It permits you to inject secrets directly into terraform without storing them in source control or unencrypted in S3.
-# Secrets will still be stored in all copies of your state file - which will be stored on disk wherever this script is run and in S3.
-# This script does not currently support encryption of state files.
-# Use this feature only if you're sure it's the right pattern for your use case.
-declare -a secrets=();
-readonly secrets_file_name="secret.tfvars.enc";
-readonly secrets_file_path="build/${secrets_file_name}";
-aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
-if [ $? -eq 0 ]; then
-  mkdir -p build;
-  aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
-    || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name}";
-  if [ -f "${secrets_file_path}" ]; then
-    secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
+if [ "${bootstrap}" == "true" ]; then
+  if [ "${action}" == "destroy" ]; then
+    error_and_die "You cannot destroy a bootstrap bucket using terraformscaffold, it's just too dangerous. If you're absolutely certain that you want to delete the bucket and all contents, including any possible state files environments and components within this project, then you will need to do it from the AWS Console. Note you cannot do this from the CLI because the bootstrap bucket is versioned, and even the --force CLI parameter will not empty the bucket of versions";
   fi;
-fi;
 
-if [ -n "${secrets[0]}" ]; then
-  secret_regex='^[A-Za-z0-9_-]+=.+$';
-  secret_count=1;
-  for secret_line in "${secrets[@]}"; do
-    if [[ "${secret_line}" =~ ${secret_regex} ]]; then
-      var_key="${secret_line%=*}";
-      var_val="${secret_line##*=}";
-      eval export TF_VAR_${var_key}="${var_val}";
-      ((secret_count++));
-    else
-      echo "Malformed secret on line ${secret_count} - ignoring";
+  # Bootstrap requires explicitly and only these parameters
+  tf_var_params+=" -var region=${region}";
+  tf_var_params+=" -var project=${project}";
+  tf_var_params+=" -var bucket_name=${bucket}";
+  tf_var_params+=" -var aws_account_id=${aws_account_id}";
+else
+  # Run pre_apply.sh
+  # TODO: Rename, rework or remove. This is pre-everything, not just apply.
+  if [ -f "pre_apply.sh" ]; then
+    bash pre_apply.sh "${region}" "${environment}" "${action}";
+    ((status=status+"$?"));
+  fi;
+
+  # Pull down secret TFVAR file from S3
+  # Anti-pattern and security warning: This secrets mechanism provides very little additional security.
+  # It permits you to inject secrets directly into terraform without storing them in source control or unencrypted in S3.
+  # Secrets will still be stored in all copies of your state file - which will be stored on disk wherever this script is run and in S3.
+  # This script does not currently support encryption of state files.
+  # Use this feature only if you're sure it's the right pattern for your use case.
+  declare -a secrets=();
+  readonly secrets_file_name="secret.tfvars.enc";
+  readonly secrets_file_path="build/${secrets_file_name}";
+  aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
+  if [ $? -eq 0 ]; then
+    mkdir -p build;
+    aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
+      || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name}";
+    if [ -f "${secrets_file_path}" ]; then
+      secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
     fi;
-  done;
-fi;
-    
-# Pull down additional dynamic plaintext tfvars file from S3
-# Anti-pattern warning: Your variables should almost always be in source control.
-# There are a very few use cases where you need constant variability in input variables,
-# and even in those cases you should probably pass additional -var parameters to this script
-# from your automation mechanism.
-# Use this feature only if you're sure it's the right pattern for your use case.
-readonly dynamic_file_name="dynamic.tfvars";
-readonly dynamic_file_path="build/${dynamic_file_name}";
-aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
-if [ $? -eq 0 ]; then
-  aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
-    || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name}";
-fi;
-
-# Use versions TFVAR files if exists
-readonly versions_file_name="versions_${region}_${environment}.tfvars";
-readonly versions_file_path="${base_path}/etc/${versions_file_name}";
-
-# Check environment name is a known environment
-# Could potentially support non-existent tfvars, but choosing not to.
-readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
-if [ ! -f "${env_file_path}" ]; then
-  error_and_die "Unknown environment. ${env_file_path} does not exist.";
-fi;
-
-# Check for presence of a global variables file, and use it if readable
-readonly global_vars_file_name="global.tfvars";
-readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
-
-# Check for presence of a region variables file, and use it if readable
-readonly region_vars_file_name="${region}.tfvars";
-readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
-
-# Collect the paths of the variables files to use
-declare tf_var_files;
-declare -a tf_var_file_paths;
-
-# Use Global and Region first, to allow potential for terraform to do the
-# honourable thing and override global and region settings with environment
-# specific ones; however we do not officially support the same variable
-# being declared in multiple locations, and we warn when we find any duplicates
-[ -f "${global_vars_file_path}" ] && tf_var_file_paths+=("${global_vars_file_path}");
-[ -f "${region_vars_file_path}" ] && tf_var_file_paths+=("${region_vars_file_path}");
-
-# We've already checked this is readable and its presence is mandatory
-tf_var_file_paths+=("${env_file_path}");
-
-# If present and readable, use versions and dynamic variables too
-[ -f "${versions_file_path}" ] && tf_var_file_paths+=("${versions_file_path}");
-[ -f "${dynamic_file_path}" ] && tf_var_file_paths+=("${dynamic_file_path}");
-
-# Warn on duplication
-duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-9_\-]\+\)\s*=.*$/\1/p' | sort | uniq -d)";
-[ -n "${duplicate_variables}" ] \
-  && echo -e "
-###########
-# WARNING #
-###########
+  fi;
+  
+  if [ -n "${secrets[0]}" ]; then
+    secret_regex='^[A-Za-z0-9_-]+=.+$';
+    secret_count=1;
+    for secret_line in "${secrets[@]}"; do
+      if [[ "${secret_line}" =~ ${secret_regex} ]]; then
+        var_key="${secret_line%=*}";
+        var_val="${secret_line##*=}";
+        eval export TF_VAR_${var_key}="${var_val}";
+        ((secret_count++));
+      else
+        echo "Malformed secret on line ${secret_count} - ignoring";
+      fi;
+    done;
+  fi;
+      
+  # Pull down additional dynamic plaintext tfvars file from S3
+  # Anti-pattern warning: Your variables should almost always be in source control.
+  # There are a very few use cases where you need constant variability in input variables,
+  # and even in those cases you should probably pass additional -var parameters to this script
+  # from your automation mechanism.
+  # Use this feature only if you're sure it's the right pattern for your use case.
+  readonly dynamic_file_name="dynamic.tfvars";
+  readonly dynamic_file_path="build/${dynamic_file_name}";
+  aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
+  if [ $? -eq 0 ]; then
+    aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
+      || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name}";
+  fi;
+  
+  # Use versions TFVAR files if exists
+  readonly versions_file_name="versions_${region}_${environment}.tfvars";
+  readonly versions_file_path="${base_path}/etc/${versions_file_name}";
+  
+  # Check environment name is a known environment
+  # Could potentially support non-existent tfvars, but choosing not to.
+  readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
+  if [ ! -f "${env_file_path}" ]; then
+    error_and_die "Unknown environment. ${env_file_path} does not exist.";
+  fi;
+  
+  # Check for presence of a global variables file, and use it if readable
+  readonly global_vars_file_name="global.tfvars";
+  readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
+  
+  # Check for presence of a region variables file, and use it if readable
+  readonly region_vars_file_name="${region}.tfvars";
+  readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
+  
+  # Collect the paths of the variables files to use
+  declare -a tf_var_file_paths;
+  
+  # Use Global and Region first, to allow potential for terraform to do the
+  # honourable thing and override global and region settings with environment
+  # specific ones; however we do not officially support the same variable
+  # being declared in multiple locations, and we warn when we find any duplicates
+  [ -f "${global_vars_file_path}" ] && tf_var_file_paths+=("${global_vars_file_path}");
+  [ -f "${region_vars_file_path}" ] && tf_var_file_paths+=("${region_vars_file_path}");
+  
+  # We've already checked this is readable and its presence is mandatory
+  tf_var_file_paths+=("${env_file_path}");
+  
+  # If present and readable, use versions and dynamic variables too
+  [ -f "${versions_file_path}" ] && tf_var_file_paths+=("${versions_file_path}");
+  [ -f "${dynamic_file_path}" ] && tf_var_file_paths+=("${dynamic_file_path}");
+  
+  # Warn on duplication
+  duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-9_\-]\+\)\s*=.*$/\1/p' | sort | uniq -d)";
+  [ -n "${duplicate_variables}" ] \
+    && echo -e "
+###################################################################
+# WARNING WARNING WARNING WARNING WARNING WARNING WARNING WARNING #
+###################################################################
 The following input variables appear to be duplicated:
 
 ${duplicate_variables}
 
-This could lead to unexpected behaviour. Overriding of variables has
-previously been unpredictable and is not currently supported, but it
-may work.
-
+This could lead to unexpected behaviour. Overriding of variables
+has previously been unpredictable and is not currently supported,
+but it may work.
+ 
 Recent changes to terraform might give you useful overriding and
 map-merging functionality, please use with caution and report back
 on your successes & failures.
-###########";
-
-# Build up the tfvars arguments for terraform command line
-for file_path in "${tf_var_file_paths[@]}"; do
-  tf_var_files+=" -var-file=${file_path}";
-done;
+###################################################################";
+  
+  # Build up the tfvars arguments for terraform command line
+  for file_path in "${tf_var_file_paths[@]}"; do
+    tf_var_params+=" -var-file=${file_path}";
+  done;
+fi; # EndIf for if ! [ "${bootstrap}" == "true" ]
 
 ##
 # Start Doing Real Things
@@ -428,25 +465,68 @@ done;
 #
 # For now we're left with this garbage, and no more support for <0.9.0.
 if [ -f backend_terraformscaffold.tf ]; then
-  echo -e "WARNING: Overwriting backend_terraformscaffold.tf" >&2;
+  echo -e "WARNING: backend_terraformscaffold.tf exists and will be overwritten!" >&2;
 fi;
 
-echo -e "terraform {
+declare backend_prefix;
+declare backend_filename;
+
+if [ "${bootstrap}" == "true" ]; then
+  backend_prefix="${project}/${aws_account_id}/${region}/bootstrap";
+  backend_filename="bootstrap.tfstate";
+else
+  backend_prefix="${project}/${aws_account_id}/${region}/${environment}";
+  backend_filename="${component_name}.tfstate";
+fi;
+
+readonly backend_key="${backend_prefix}/${backend_filename}";
+readonly backend_config="terraform {
   backend \"s3\" {
     region = \"${region}\"
     bucket = \"${bucket}\"
-    key    = \"${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate\"
+    key    = \"${backend_key}\"
   }
-}" > backend_terraformscaffold.tf \
-  || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
+}";
 
-# Nix the horrible hack on exit
-trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
+# We're now all ready to go. All that's left is to:
+#   * Write the backend config
+#   * terraform init
+#   * terraform ${action}
+#
+# But if we're dealing with the special bootstrap component
+# we can't remotely store the backend until we've bootstrapped it
+#
+# So IF the S3 bucket already exists, we will continue as normal
+# because we want to be able to manage changes to an existing
+# bootstrap bucket. But if it *doesn't* exist, then we need to be
+# able to plan and apply it with a local state, and *then* configure
+# the remote state.
+
+# In default operations we assume we are already bootstrapped
+declare bootstrapped="true";
+
+# If we are in bootstrap mode, we need to know if we have already bootstrapped
+# or we are working with or modifying an existing bootstrap bucket
+if [ "${bootstrap}" == "true" ]; then
+  # For this exist check we could do many things, but we explicitly perform
+  # an ls against the key we will be working with so as to not require
+  # permissions to, for example, list all buckets, or the bucket root keyspace
+  aws s3 ls s3://${bucket}/${backend_prefix}/${backend_filename} >/dev/null 2>&1;
+  [ $? -eq 0 ] || bootstrapped="false";
+fi;
+
+if [ "${bootstrapped}" == "true" ]; then
+  echo -e "${backend_config}" > backend_terraformscaffold.tf \
+    || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
+
+  # Nix the horrible hack on exit
+  trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
  
-# Configure remote state storage
-echo "Setting up S3 remote state from s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${component_name}.tfstate";
-terraform init \
-  || error_and_die "Terraform init failed";
+  # Configure remote state storage
+  echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
+  terraform init \
+    || error_and_die "Terraform init failed";
+fi;
 
 case "${action}" in
   'plan')
@@ -454,7 +534,7 @@ case "${action}" in
       mkdir -p build;
 
       plan_file_name="${component_name}_${build_id}.tfplan";
-      plan_file_remote_key="${project}/${aws_account_id}/${region}/${environment}/plans/${plan_file_name}";
+      plan_file_remote_key="${backend_prefix}/plans/${plan_file_name}";
 
       out="-out=build/${plan_file_name}";
     fi;
@@ -463,7 +543,7 @@ case "${action}" in
       -input=false \
       ${refresh} \
       -module-depth=-1 \
-      ${tf_var_files} \
+      ${tf_var_params} \
       ${extra_args} \
       ${destroy} \
       ${out} \
@@ -488,7 +568,7 @@ case "${action}" in
     if [ -n "${build_id}" ]; then
       mkdir -p build;
       plan_file_name="${component_name}_${build_id}.tfplan";
-      plan_file_remote_key="${project}/${aws_account_id}/${region}/${environment}/plans/${plan_file_name}";
+      plan_file_remote_key="${backend_prefix}/plans/${plan_file_name}";
 
       aws s3 cp s3://${bucket}/${plan_file_remote_key} build/${plan_file_name} \
         || error_and_die "Plan file download from S3 failed (s3://${bucket}/${plan_file_remote_key})";
@@ -507,11 +587,34 @@ case "${action}" in
       terraform "${action}" \
         -input=false \
         ${refresh} \
-        ${tf_var_files} \
+        ${tf_var_params} \
         -parallelism=10 \
         ${extra_args} \
         ${force};
       exit_code=$?;
+
+      if [ "${bootstrapped}" == "false" ]; then
+        # If we are here, and we are in bootstrap mode, and not already bootstrapped,
+        # Then we have just bootstrapped for the first time! Congratulations.
+        # Now we need to copy our state file into the bootstrap bucket
+         echo -e "${backend_config}" > backend_terraformscaffold.tf \
+          || error_and_die "Failed to write backend config to $(pwd)/backend_terraformscaffold.tf";
+
+        # Nix the horrible hack on exit
+        trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
+
+        # Push Terraform Remote State to S3
+        echo "yes" | terraform init || error_and_die "Terraform init failed";
+
+        # Hard cleanup
+        rm -f backend_terraformscaffold.tf;
+        rm -f terraform.tfstate # Prime not the backup
+        rm -rf .terraform;
+
+        # This doesn't mean anything here, we're just celebrating!
+        bootstrapped="true";
+      fi;
+
     fi;
 
     if [ ${exit_code} -ne 0 ]; then
@@ -527,7 +630,7 @@ case "${action}" in
     terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed.";
     ;;
   'import')
-    terraform "${action}" ${tf_var_files} ${extra_args} || error_and_die "Terraform ${action} failed.";
+    terraform "${action}" ${tf_var_params} ${extra_args} || error_and_die "Terraform ${action} failed.";
     ;;
   *)
     echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";

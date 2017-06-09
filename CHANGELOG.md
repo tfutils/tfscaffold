@@ -1,3 +1,7 @@
+## 1.2.0 (09/06/2017)
+
+ * Merge bootstrap functionality into the main script
+
 ## 1.1.4 (16/05/2017)
 
  * Global and Region scoped variables files
