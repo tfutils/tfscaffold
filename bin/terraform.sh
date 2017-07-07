@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.2.0";
+readonly script_ver="1.2.1";
 
 ##
 # Standardised failure function
@@ -235,19 +235,19 @@ fi
   || error_and_die "Required argument missing: -a/--action";
 
 # Validate AWS Credentials Available
-iam_iron_man="$(aws iam get-user --output text --query 'User.Arn')";
+iam_iron_man="$(aws sts get-caller-identity --query 'Arn' --output text)";
 if [ -n "${iam_iron_man}" ]; then
   echo -e "AWS Credentials Found. Using ARN '${iam_iron_man}'";
 else
-  error_and_die "No AWS Credentials Found. 'aws iam get-user' responded with ARN '${iam_iron_man}'";
+  error_and_die "No AWS Credentials Found. \"aws sts get-caller-identity --query 'Arn' --output text\" responded with ARN '${iam_iron_man}'";
 fi;
 
 # Query canonical AWS Account ID
-aws_account_id="$(aws ec2 describe-security-groups --query 'SecurityGroups[0].OwnerId' --output text)";
+aws_account_id="$(aws sts get-caller-identity --query 'Account' --output text)";
 if [ -n "${aws_account_id}" ]; then
   echo -e "AWS Account ID: ${aws_account_id}";
 else
-  error_and_die "Couldn't determine AWS Account ID";
+  error_and_die "Couldn't determine AWS Account ID. \"aws sts get-caller-identity --query 'Account' --output text\" provided no output";
 fi;
 
 # Validate S3 bucket. Set default if undefined
