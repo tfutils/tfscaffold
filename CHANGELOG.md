@@ -1,3 +1,7 @@
+## 1.3.0 (26/07/2017)
+
+ * Introduce the group variables file functionality
+
 ## 1.2.0 (09/06/2017)
 
  * Merge bootstrap functionality into the main script

@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.2.1";
+readonly script_ver="1.3.0";
 
 ##
 # Standardised failure function
@@ -36,6 +36,7 @@ Usage: ${0} \\
   -b/--bucket-prefix [bucket_prefix] \\
   -c/--component     [component_name] \\
   -e/--environment   [environment] \\
+  -g/--group         [group]
   -i/--build-id      [build_id] (optional) \\
   -p/--project       [project] \\
   -r/--region        [region] \\
@@ -70,6 +71,11 @@ environment:
  - prod
  - management
 
+group:
+ - dev
+ - live
+ - mytestgroup
+
 project:
  - The name of the project being deployed
 
@@ -87,8 +93,8 @@ EOF
 ##
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
-         -o hva:b:c:e:i:p:r: \
-         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,project:,region:" \
+         -o hva:b:c:e:g:i:p:r: \
+         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:" \
          -n "${0}" \
          -- \
          "$@");
@@ -105,6 +111,7 @@ declare bootstrap="false";
 declare component_arg;
 declare region_arg;
 declare environment_arg;
+declare group;
 declare action;
 declare bucket_prefix;
 declare build_id;
@@ -138,6 +145,13 @@ while true; do
       shift;
       if [ -n "${1}" ]; then
         environment_arg="${1}";
+        shift;
+      fi;
+      ;;
+    -g|--group)
+      shift;
+      if [ -n "${1}" ]; then
+        group="${1}";
         shift;
       fi;
       ;;
@@ -229,6 +243,7 @@ else
   [ -n "${environment_arg}" ] \
     || error_and_die "Required argument missing: -e/--environment";
   readonly environment="${environment_arg}";
+    
 fi
 
 [ -n "${action}" ] \
@@ -407,6 +422,12 @@ else
   # Check for presence of a region variables file, and use it if readable
   readonly region_vars_file_name="${region}.tfvars";
   readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
+
+  # Check for presence of a group variables file if specified, and use it if readable
+  if [ -n "${group}" ]; then
+    readonly group_vars_file_name="group_${group}.tfvars";
+    readonly group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
+  fi;
   
   # Collect the paths of the variables files to use
   declare -a tf_var_file_paths;
@@ -417,6 +438,18 @@ else
   # being declared in multiple locations, and we warn when we find any duplicates
   [ -f "${global_vars_file_path}" ] && tf_var_file_paths+=("${global_vars_file_path}");
   [ -f "${region_vars_file_path}" ] && tf_var_file_paths+=("${region_vars_file_path}");
+
+  # If a group has been specified, load the vars for the group. If we are to assume
+  # terraform correctly handles override-ordering (which to be fair we don't hence
+  # the warning about duplicate variables below) we add this to the list after
+  # global and region-global variables, but before the environment variables
+  # so that the environment can explicitly override variables defined in the group.
+  if [ -n "${group}" ]; then
+    [ -f "${group_vars_file_path}" ] \
+      || error_and_die "Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
+
+    tf_var_file_paths+=("${group_vars_file_path}");
+  fi;
   
   # We've already checked this is readable and its presence is mandatory
   tf_var_file_paths+=("${env_file_path}");
