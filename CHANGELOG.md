@@ -1,3 +1,7 @@
+## 1.3.1 (27/07/2017)
+
+ * Change from error to warn on non-presence of requested group variables file
+
 ## 1.3.0 (26/07/2017)
 
  * Introduce the group variables file functionality

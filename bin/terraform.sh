@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.3.0";
+readonly script_ver="1.3.1";
 
 ##
 # Standardised failure function
@@ -445,10 +445,11 @@ else
   # global and region-global variables, but before the environment variables
   # so that the environment can explicitly override variables defined in the group.
   if [ -n "${group}" ]; then
-    [ -f "${group_vars_file_path}" ] \
-      || error_and_die "Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
-
-    tf_var_file_paths+=("${group_vars_file_path}");
+    if [ -f "${group_vars_file_path}" ]; then
+      tf_var_file_paths+=("${group_vars_file_path}");
+    else
+      echo -e "[WARNING] Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
+    fi;
   fi;
   
   # We've already checked this is readable and its presence is mandatory
