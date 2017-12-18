@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.4.0";
+readonly script_ver="1.4.1";
 
 ##
 # Standardised failure function
@@ -572,7 +572,8 @@ if [ "${bootstrapped}" == "true" ]; then
  
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
-  terraform init -upgrade \
+  # TODO: Add -upgrade to init when we drop support for <0.10
+  terraform init \
     || error_and_die "Terraform init failed";
 fi;
 
@@ -661,7 +662,8 @@ case "${action}" in
         trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
 
         # Push Terraform Remote State to S3
-        echo "yes" | terraform init -upgrade || error_and_die "Terraform init failed";
+        # TODO: Add -upgrade to init when we drop support for <0.10
+        echo "yes" | terraform init || error_and_die "Terraform init failed";
 
         # Hard cleanup
         rm -f backend_terraformscaffold.tf;

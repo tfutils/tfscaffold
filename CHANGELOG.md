@@ -1,3 +1,7 @@
+## 1.4.1 (18/12/2017)
+
+ * Remove `-upgrade` from init. Added prematurely. Can go back in when 0.9 support is dropped.
+
 ## 1.4.0 (18/12/2017)
 
  * Support terraform 0.10/0.11, bypassing new built-in approval mechanism.
