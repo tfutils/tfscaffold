@@ -14,6 +14,7 @@ Terraform scaffold consists of a terraform wrapper bash script, a bootstrap scri
 | etc/ | The location for environment-specific terraform variables files:<br/>`env_{region}_{environment}.tfvars`<br/>`versions_{region}_{environment}.tfvars` |
 | lib/ | Optional useful libraries, such as Jenkins pipeline groovy script |
 | modules/ | The optional location for terraform modules called by components |
+| plugin-cache/ | The default directory used for caching plugin downloads |
 | src/ | The optional location for source files, e.g. source for lambda functions zipped up into artefacts inside components |
 
 ## Concepts & Assumptions
@@ -62,6 +63,10 @@ Although as yet somewhat unrefined, Scaffold provides the capacity to incorporat
 This is an experimental feature that is not necessarily an appropriate solution for secrets management in production systems due to the way state files are stored with all terraform variables included. In general a resource that requires secret information should look up that information itself once it has been created using role based credentials. If however you are simply looking for a solution to move secrets out of your Git repository and into S3 which can be locked down, then this might be useful.
 
 On invocation, Scaffold checks for a file at _s3://${bucket}/${project}/secrets/secret_${region}_${environment}.tfvars.enc_. If it finds one, it attempts to use KMS to decrypt the contents into an array and then process each line as a key=value set of variables. Each one is then provided to terraform as an input variable in the form: -var 'key=value'. This ensures that the secret is never stored unencrypted on disk even temporarily during terraform apply. However.. the completely unencrypted format of the terraform tfplan and tfstate files means these secrets will still make it to disk and be stored in the clear, hence the above caveats. This is not a complete secrets management solution, but it is a useful quick fix to get your secrets out of Git while you work on a better long term plan.
+
+### Provider Plugins
+
+Since 0.10 terraform has split its providers out into plugins which are downloaded separately. This has caused some issues in automation where you can be downloading the same provider endlessly. A long term solution to this has not yet been decided upon as there are many ways to implement a solution, but none really suit all likely scenarios. Ideally I would like to see management of this handled by kamatama41/tfenv. For the moment, terraformscaffold will instruct terraform to cache plugins in the plugin-cache/ top level directory by default. This can be overridden by exporting the TF_PLUGIN_CACHE_DIR variable with an appropriate value. This at least means that within one code checkout, regardless of swapping around components to plan or apply, you will only need to download providers once. If you have a local artifact repository or some other preference for keeping copies of providers locally you can use it with this variable.
 
 ## Usage
 ### Bootstrapping

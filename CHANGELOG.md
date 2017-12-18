@@ -1,3 +1,9 @@
+## 1.4.0 (18/12/2017)
+
+ * Support terraform 0.10/0.11, bypassing new built-in approval mechanism.
+ * Explicitly cache plugin downloads.
+ * Set TF_IN_AUTOMATION.
+
 ## 1.3.1 (27/07/2017)
 
  * Change from error to warn on non-presence of requested group variables file
