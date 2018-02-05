@@ -6,6 +6,9 @@
 **/.terraform
 **/.terraform/*
 
+# Scaffold Plugin Cache
+plugin-cache/*
+
 ### OSX ###
 **/.DS_Store
 **/.AppleDouble

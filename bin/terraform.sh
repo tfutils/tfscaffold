@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.4.1";
+readonly script_ver="1.4.2";
 
 ##
 # Standardised failure function
@@ -574,6 +574,11 @@ if [ "${bootstrapped}" == "true" ]; then
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   # TODO: Add -upgrade to init when we drop support for <0.10
   terraform init \
+    || error_and_die "Terraform init failed";
+else
+  # We are bootstrapping. Download the providers, skip the backend config.
+  terraform init \
+    -backend=false \
     || error_and_die "Terraform init failed";
 fi;
 
