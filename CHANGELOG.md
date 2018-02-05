@@ -1,3 +1,9 @@
+## 1.4.2 (05/02/2018)
+
+ * Add an init with -backend=false in bootstrap mode, otherwise providers are not downloaded
+ * Fix bootstrap output that was using a now deprecated bucket resource attribute
+ * Add an indicative .terraform-version file for tfenv support in bootstrap
+
 ## 1.4.1 (18/12/2017)
 
  * Remove `-upgrade` from init. Added prematurely. Can go back in when 0.9 support is dropped.

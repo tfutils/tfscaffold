@@ -27,6 +27,8 @@ resource "aws_s3_bucket" "bucket" {
     }
   }
 
+  # This does not use default tag map merging because bootstrapping is special
+  # You should use default tag map merging elsewhere
   tags {
     "Name"        = "Terraform Scaffold State File Bucket for account ${var.aws_account_id} in region ${var.region}"
     "Environment" = "${var.environment}"
@@ -34,8 +36,4 @@ resource "aws_s3_bucket" "bucket" {
     "Component"   = "${var.component}"
     "Account"     = "${var.aws_account_id}"
   }
-}
-
-output "bucket_name" {
-  value = "${aws_s3_bucket.bucket.name}"
 }
