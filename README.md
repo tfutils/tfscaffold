@@ -68,6 +68,10 @@ On invocation, Scaffold checks for a file at _s3://${bucket}/${project}/secrets/
 
 Since 0.10 terraform has split its providers out into plugins which are downloaded separately. This has caused some issues in automation where you can be downloading the same provider endlessly. A long term solution to this has not yet been decided upon as there are many ways to implement a solution, but none really suit all likely scenarios. Ideally I would like to see management of this handled by kamatama41/tfenv. For the moment, terraformscaffold will instruct terraform to cache plugins in the plugin-cache/ top level directory by default. This can be overridden by exporting the TF_PLUGIN_CACHE_DIR variable with an appropriate value. This at least means that within one code checkout, regardless of swapping around components to plan or apply, you will only need to download providers once. If you have a local artifact repository or some other preference for keeping copies of providers locally you can use it with this variable.
 
+### Parallel executions
+
+Dynamodb table will be created for locking purposes.
+
 ## Usage
 ### Bootstrapping
 Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket and then configure the bucket as a remote state location for itself. nd upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
@@ -77,7 +81,7 @@ It is not recommended to modify the bootstrap code after creation as it risks th
 Bootstrapping usage:
 
 ```bash
-bin/bootstrap.sh \
+bin/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
@@ -86,7 +90,7 @@ bin/bootstrap.sh \
 ```
 
 ```bash
-bootstrap/bootstrap.sh \
+bootstrap/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
