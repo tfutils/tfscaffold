@@ -335,8 +335,13 @@ mkdir -p "${TF_PLUGIN_CACHE_DIR}" \
 # Clear cache, safe enough as we enforce plugin cache
 rm -rf ${component_path}/.terraform;
 
+if [ -f "pre.sh" ]; then
+  source pre.sh "${region}" "${environment}" "${action}";
+  ((status=status+"$?"));
+fi;
+
 # Make sure we're running in the component directory
-cd "${component_path}";
+pushd "${component_path}";
 readonly component_name=$(basename ${component_path});
 
 # Check for presence of tfenv (https://github.com/kamatama41/tfenv)
@@ -686,7 +691,10 @@ case "${action}" in
 
     if [ -f "post.sh" ]; then
       bash post.sh "${region}" "${environment}" "${action}";
-      exit $?;
+	  post_exit_code=$?;
+      if [ ${post_exit_code} -ne 0 ]; then
+        error_and_die "post.sh failed with exit code ${post_exit_code}"
+      fi;
     fi
     ;;
   '*taint')
@@ -702,5 +710,12 @@ case "${action}" in
       || error_and_die "Terraform ${action} failed.";
     ;;
 esac;
+
+popd
+
+if [ -f "post.sh" ]; then
+  bash post.sh "${region}" "${environment}" "${action}";
+  exit $?;
+fi
 
 exit 0;
