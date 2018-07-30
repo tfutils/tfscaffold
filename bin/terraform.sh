@@ -365,7 +365,7 @@ if [ "${bootstrap}" == "true" ]; then
 else
   # Run pre.sh
   if [ -f "pre.sh" ]; then
-    bash pre.sh "${region}" "${environment}" "${action}";
+    source pre.sh "${region}" "${environment}" "${action}";
     ((status=status+"$?"));
   fi;
 
