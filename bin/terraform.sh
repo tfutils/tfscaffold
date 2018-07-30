@@ -363,10 +363,9 @@ if [ "${bootstrap}" == "true" ]; then
   tf_var_params+=" -var bucket_name=${bucket}";
   tf_var_params+=" -var aws_account_id=${aws_account_id}";
 else
-  # Run pre_apply.sh
-  # TODO: Rename, rework or remove. This is pre-everything, not just apply.
-  if [ -f "pre_apply.sh" ]; then
-    bash pre_apply.sh "${region}" "${environment}" "${action}";
+  # Run pre.sh
+  if [ -f "pre.sh" ]; then
+    bash pre.sh "${region}" "${environment}" "${action}";
     ((status=status+"$?"));
   fi;
 
@@ -685,8 +684,8 @@ case "${action}" in
       error_and_die "Terraform ${action} failed with exit code ${exit_code}"
     fi;
 
-    if [ -f "post_apply.sh" ]; then
-      bash post_apply.sh "${region}" "${environment}" "${action}";
+    if [ -f "post.sh" ]; then
+      bash post.sh "${region}" "${environment}" "${action}";
       exit $?;
     fi
     ;;
