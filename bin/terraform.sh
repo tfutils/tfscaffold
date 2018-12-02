@@ -32,14 +32,15 @@ function usage() {
 
 cat <<EOF
 Usage: ${0} \\
-  -a/--action        [action] \\
-  -b/--bucket-prefix [bucket_prefix] \\
-  -c/--component     [component_name] \\
-  -e/--environment   [environment] \\
-  -g/--group         [group]
-  -i/--build-id      [build_id] (optional) \\
-  -p/--project       [project] \\
-  -r/--region        [region] \\
+  -a/--action           [action] \\
+  -b/--bucket-prefix    [bucket_prefix] \\
+  -c/--component        [component_name] \\
+  -e/--environment      [environment] \\
+  -g/--group            [group]
+  -i/--build-id         [build_id] (optional) \\
+  -p/--project          [project] \\
+  -r/--region           [region] \\
+  -s/--storage-provider [storage_provider] (optional, default: aws) \\
   -- \\
   <additional arguments to forward to the terraform binary call>
 
@@ -64,7 +65,13 @@ build_id (optional):
 
 component_name:
  - the name of the terraform component module in the components directory
-  
+
+storage_provider:
+ - the backend to use for state storage, defaults to aws s3
+ - Options:
+   * aws
+   * gcloud
+
 environment:
  - dev
  - test
@@ -93,8 +100,8 @@ EOF
 ##
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
-         -o hva:b:c:e:g:i:p:r: \
-         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:" \
+         -o hva:b:c:e:g:i:p:r:s: \
+         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,storage-provider:" \
          -n "${0}" \
          -- \
          "$@");
@@ -116,6 +123,7 @@ declare action;
 declare bucket_prefix;
 declare build_id;
 declare project;
+declare storage_provider;
 
 while true; do
   case "${1}" in
@@ -176,6 +184,13 @@ while true; do
         shift;
       fi;
       ;;
+    -s|--storage-provider)
+      shift;
+      if [ -n "${1}" ]; then
+        storage_provider="${1}";
+        shift;
+      fi;
+      ;;
     -p|--project)
       shift;
       if [ -n "${1}" ]; then
@@ -186,7 +201,7 @@ while true; do
     --bootstrap)
       shift;
       bootstrap="true"
-      ;; 
+      ;;
     --)
       shift;
       break;
@@ -225,6 +240,21 @@ readonly region="${region_arg:-${AWS_DEFAULT_REGION}}";
 [ -n "${project}" ] \
   || error_and_die "Required argument -p/--project not specified";
 
+[ -n "${storage_provider}" ] \
+  || storage_provider="aws";
+
+if [ "${storage_provider}" == "aws"  ]; then
+  storage_cmd="aws s3";
+  verify_cmd="aws sts get-caller-identity --query Arn --output text";
+  account_cmd="aws sts get-caller-identity --query Account --output text";
+  storage_url="s3://"
+elif [ "${storage_provider}" == "gcloud" ]; then
+  storage_cmd="gsutil";
+  verify_cmd="gcloud config list --format value(core.account)";
+  account_cmd="gcloud config list --format value(core.project)";
+  storage_url="gs://"
+fi
+
 # Bootstrapping is special
 if [ "${bootstrap}" == "true" ]; then
   [ -n "${component_arg}" ] \
@@ -243,35 +273,35 @@ else
   [ -n "${environment_arg}" ] \
     || error_and_die "Required argument missing: -e/--environment";
   readonly environment="${environment_arg}";
-    
+
 fi
 
 [ -n "${action}" ] \
   || error_and_die "Required argument missing: -a/--action";
 
-# Validate AWS Credentials Available
-iam_iron_man="$(aws sts get-caller-identity --query 'Arn' --output text)";
-if [ -n "${iam_iron_man}" ]; then
-  echo -e "AWS Credentials Found. Using ARN '${iam_iron_man}'";
+# Validate Credentials Available
+verify="$(${verify_cmd})";
+if [ -n "${verify}" ]; then
+  echo -e "Credentials Found. Using '${verify}'";
 else
-  error_and_die "No AWS Credentials Found. \"aws sts get-caller-identity --query 'Arn' --output text\" responded with ARN '${iam_iron_man}'";
+  error_and_die "No Credentials Found. \"${verify_cmd}\" responded with '${verify}'";
 fi;
 
 # Query canonical AWS Account ID
-aws_account_id="$(aws sts get-caller-identity --query 'Account' --output text)";
-if [ -n "${aws_account_id}" ]; then
-  echo -e "AWS Account ID: ${aws_account_id}";
+account_id="$($account_cmd)";
+if [ -n "${account_id}" ]; then
+  echo -e "Account ID: ${account_id}";
 else
-  error_and_die "Couldn't determine AWS Account ID. \"aws sts get-caller-identity --query 'Account' --output text\" provided no output";
+  error_and_die "Couldn't determine Account ID. \"${account_cmd}\" provided no output";
 fi;
 
 # Validate S3 bucket. Set default if undefined
 if [ -n "${bucket_prefix}" ]; then
-  readonly bucket="${bucket_prefix}-${aws_account_id}-${region}"
-  echo -e "Using S3 bucket s3://${bucket}";
+  readonly bucket="${bucket_prefix}-${account_id}-${region}"
+  echo -e "Using bucket ${storage_url}${bucket}";
 else
-  readonly bucket="${project}-terraformscaffold-${aws_account_id}-${region}";
-  echo -e "No bucket prefix specified. Using S3 bucket s3://${bucket}";
+  readonly bucket="${project}-terraformscaffold-${account_id}-${region}";
+  echo -e "No bucket prefix specified. Using bucket ${storage_url}${bucket}";
 fi;
 
 declare component_path;
@@ -366,7 +396,7 @@ if [ "${bootstrap}" == "true" ]; then
   tf_var_params+=" -var region=${region}";
   tf_var_params+=" -var project=${project}";
   tf_var_params+=" -var bucket_name=${bucket}";
-  tf_var_params+=" -var aws_account_id=${aws_account_id}";
+  tf_var_params+=" -var account_id=${account_id}";
 else
   # Run pre.sh
   if [ -f "pre.sh" ]; then
@@ -383,16 +413,16 @@ else
   declare -a secrets=();
   readonly secrets_file_name="secret.tfvars.enc";
   readonly secrets_file_path="build/${secrets_file_name}";
-  aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
+  ${storage_cmd} ls ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
   if [ $? -eq 0 ]; then
     mkdir -p build;
-    aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
-      || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name}";
+    ${storage_cmd} cp ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
+      || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name}";
     if [ -f "${secrets_file_path}" ]; then
       secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
     fi;
   fi;
-  
+
   if [ -n "${secrets[0]}" ]; then
     secret_regex='^[A-Za-z0-9_-]+=.+$';
     secret_count=1;
@@ -407,7 +437,7 @@ else
       fi;
     done;
   fi;
-      
+
   # Pull down additional dynamic plaintext tfvars file from S3
   # Anti-pattern warning: Your variables should almost always be in source control.
   # There are a very few use cases where you need constant variability in input variables,
@@ -416,27 +446,27 @@ else
   # Use this feature only if you're sure it's the right pattern for your use case.
   readonly dynamic_file_name="dynamic.tfvars";
   readonly dynamic_file_path="build/${dynamic_file_name}";
-  aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
+  ${storage_cmd} ls ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
   if [ $? -eq 0 ]; then
-    aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
-      || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name}";
+    ${storage_cmd} cp ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
+      || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}";
   fi;
-  
+
   # Use versions TFVAR files if exists
   readonly versions_file_name="versions_${region}_${environment}.tfvars";
   readonly versions_file_path="${base_path}/etc/${versions_file_name}";
-  
+
   # Check environment name is a known environment
   # Could potentially support non-existent tfvars, but choosing not to.
   readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
   if [ ! -f "${env_file_path}" ]; then
     error_and_die "Unknown environment. ${env_file_path} does not exist.";
   fi;
-  
+
   # Check for presence of a global variables file, and use it if readable
   readonly global_vars_file_name="global.tfvars";
   readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
-  
+
   # Check for presence of a region variables file, and use it if readable
   readonly region_vars_file_name="${region}.tfvars";
   readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
@@ -446,10 +476,10 @@ else
     readonly group_vars_file_name="group_${group}.tfvars";
     readonly group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
   fi;
-  
+
   # Collect the paths of the variables files to use
   declare -a tf_var_file_paths;
-  
+
   # Use Global and Region first, to allow potential for terraform to do the
   # honourable thing and override global and region settings with environment
   # specific ones; however we do not officially support the same variable
@@ -469,14 +499,14 @@ else
       echo -e "[WARNING] Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
     fi;
   fi;
-  
+
   # We've already checked this is readable and its presence is mandatory
   tf_var_file_paths+=("${env_file_path}");
-  
+
   # If present and readable, use versions and dynamic variables too
   [ -f "${versions_file_path}" ] && tf_var_file_paths+=("${versions_file_path}");
   [ -f "${dynamic_file_path}" ] && tf_var_file_paths+=("${dynamic_file_path}");
-  
+
   # Warn on duplication
   duplicate_variables="$(cat "${tf_var_file_paths[@]}" | sed -n -e 's/\(^[a-zA-Z0-9_\-]\+\)\s*=.*$/\1/p' | sort | uniq -d)";
   [ -n "${duplicate_variables}" ] \
@@ -491,12 +521,12 @@ ${duplicate_variables}
 This could lead to unexpected behaviour. Overriding of variables
 has previously been unpredictable and is not currently supported,
 but it may work.
- 
+
 Recent changes to terraform might give you useful overriding and
 map-merging functionality, please use with caution and report back
 on your successes & failures.
 ###################################################################";
-  
+
   # Build up the tfvars arguments for terraform command line
   for file_path in "${tf_var_file_paths[@]}"; do
     tf_var_params+=" -var-file=${file_path}";
@@ -524,21 +554,34 @@ declare backend_prefix;
 declare backend_filename;
 
 if [ "${bootstrap}" == "true" ]; then
-  backend_prefix="${project}/${aws_account_id}/${region}/bootstrap";
+  backend_prefix="${project}/${account_id}/${region}/bootstrap";
   backend_filename="bootstrap.tfstate";
 else
-  backend_prefix="${project}/${aws_account_id}/${region}/${environment}";
+  backend_prefix="${project}/${account_id}/${region}/${environment}";
   backend_filename="${component_name}.tfstate";
 fi;
 
 readonly backend_key="${backend_prefix}/${backend_filename}";
-readonly backend_config="terraform {
-  backend \"s3\" {
-    region = \"${region}\"
-    bucket = \"${bucket}\"
-    key    = \"${backend_key}\"
-  }
-}";
+
+if [ ${storage_provider} == "gcloud" ]; then
+  readonly backend_config="terraform {
+    backend \"gcs\" {
+      project = \"${project}\"
+      region = \"${region}\"
+      bucket = \"${bucket}\"
+      prefix    = \"${backend_key}\"
+    }
+  }";
+
+else
+  readonly backend_config="terraform {
+    backend \"s3\" {
+      region = \"${region}\"
+      bucket = \"${bucket}\"
+      key    = \"${backend_key}\"
+    }
+  }";
+fi
 
 # We're now all ready to go. All that's left is to:
 #   * Write the backend config
@@ -563,7 +606,7 @@ if [ "${bootstrap}" == "true" ]; then
   # For this exist check we could do many things, but we explicitly perform
   # an ls against the key we will be working with so as to not require
   # permissions to, for example, list all buckets, or the bucket root keyspace
-  aws s3 ls s3://${bucket}/${backend_prefix}/${backend_filename} >/dev/null 2>&1;
+  ${storage_command} ls ${storage_url}${bucket}/${backend_prefix}/${backend_filename} >/dev/null 2>&1;
   [ $? -eq 0 ] || bootstrapped="false";
 fi;
 
@@ -573,7 +616,7 @@ if [ "${bootstrapped}" == "true" ]; then
 
   # Nix the horrible hack on exit
   trap "rm -f $(pwd)/backend_terraformscaffold.tf" EXIT;
- 
+
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   # TODO: Add -upgrade to init when we drop support for <0.10
@@ -608,17 +651,17 @@ case "${action}" in
       || error_and_die "Terraform plan failed";
 
     if [ -n "${build_id}" ]; then
-      aws s3 cp build/${plan_file_name} s3://${bucket}/${plan_file_remote_key} \
-        || error_and_die "Plan file upload to S3 failed (s3://${bucket}/${plan_file_remote_key})";
+      ${storage_cmd} cp build/${plan_file_name} ${storage_url}${bucket}/${plan_file_remote_key} \
+        || error_and_die "Plan file upload failed (${storage_url}${bucket}/${plan_file_remote_key})";
     fi;
 
     exit ${status};
     ;;
   'graph')
     mkdir -p build || error_and_die "Failed to create output directory '$(pwd)/build'";
-    terraform graph -draw-cycles | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}.png \
+    terraform graph -draw-cycles | dot -Tpng > build/${project}-${account_id}-${region}-${environment}.png \
       || error_and_die "Terraform simple graph generation failed";
-    terraform graph -draw-cycles -verbose | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}-verbose.png \
+    terraform graph -draw-cycles -verbose | dot -Tpng > build/${project}-${account_id}-${region}-${environment}-verbose.png \
       || error_and_die "Terraform verbose graph generation failed";
     exit 0;
     ;;
@@ -637,7 +680,7 @@ case "${action}" in
       plan_file_name="${component_name}_${build_id}.tfplan";
       plan_file_remote_key="${backend_prefix}/plans/${plan_file_name}";
 
-      aws s3 cp s3://${bucket}/${plan_file_remote_key} build/${plan_file_name} \
+      ${storage_cmd} cp ${storage_url}${bucket}/${plan_file_remote_key} build/${plan_file_name} \
         || error_and_die "Plan file download from S3 failed (s3://${bucket}/${plan_file_remote_key})";
 
       apply_plan="build/${plan_file_name}";
