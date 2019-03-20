@@ -89,6 +89,14 @@ EOF
 };
 
 ##
+# Test for GNU getopt
+##
+getopt_out=$(getopt -T)
+if (( $? != 4 )) && [[ -n $getopt_out ]]; then
+  error_and_die "Non GNU getopt detected. If you're using a Mac then try \"brew install gnu-getopt\"";
+fi
+
+##
 # Execute getopt and process script arguments
 ##
 readonly raw_arguments="${*}";
