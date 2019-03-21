@@ -6,16 +6,16 @@ A framework for controlling multi-environment multi-component terraform-managed 
 
 Terraform scaffold consists of a terraform wrapper bash script, a bootstrap script and a set of directories providing the locations to store terraform code and variables.
 
-| Thing	| Things about the Thing |
-|-------|------------------------|
+| Thing	           | Things about the Thing |
+|------------------|------------------------|
 | bin/terraform.sh | The terraformscaffold script |
-| bootstrap/ | The bootstrap terraform code used for creating the terraformscaffold S3 bucket |
-| components/ |	The location for terraform "components". Terraform code intended to be run directly as a root module. |
-| etc/ | The location for environment-specific terraform variables files:<br/>`env_{region}_{environment}.tfvars`<br/>`versions_{region}_{environment}.tfvars` |
-| lib/ | Optional useful libraries, such as Jenkins pipeline groovy script |
-| modules/ | The optional location for terraform modules called by components |
-| plugin-cache/ | The default directory used for caching plugin downloads |
-| src/ | The optional location for source files, e.g. source for lambda functions zipped up into artefacts inside components |
+| bootstrap/       | The bootstrap terraform code used for creating the terraformscaffold S3 bucket |
+| components/      |	The location for terraform "components". Terraform code intended to be run directly as a root module. |
+| etc/             | The location for environment-specific terraform variables files:<br/>`env_{region}_{environment}.tfvars`<br/>`versions_{region}_{environment}.tfvars` |
+| lib/             | Optional useful libraries, such as Jenkins pipeline groovy script |
+| modules/         | The optional location for terraform modules called by components |
+| plugin-cache/    | The default directory used for caching plugin downloads |
+| src/             | The optional location for source files, e.g. source for lambda functions zipped up into artefacts inside components |
 
 ## Concepts & Assumptions
 
@@ -70,14 +70,14 @@ Since 0.10 terraform has split its providers out into plugins which are download
 
 ## Usage
 ### Bootstrapping
-Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket and then configure the bucket as a remote state location for itself. nd upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
+Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket, configure the bucket as a remote state location for itself and upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
 
 It is not recommended to modify the bootstrap code after creation as it risks the integrity of the state files stored in the bucket that manage other deployments; however this can be mitigated by configuring synchronisation with a master backup bucket external to Scaffold management.
 
 Bootstrapping usage:
 
 ```bash
-bin/bootstrap.sh \
+bin/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
@@ -86,7 +86,7 @@ bin/bootstrap.sh \
 ```
 
 ```bash
-bootstrap/bootstrap.sh \
+bin/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
