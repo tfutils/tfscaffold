@@ -77,7 +77,7 @@ It is not recommended to modify the bootstrap code after creation as it risks th
 Bootstrapping usage:
 
 ```bash
-bin/bootstrap.sh \
+bin/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
@@ -86,7 +86,7 @@ bin/bootstrap.sh \
 ```
 
 ```bash
-bootstrap/bootstrap.sh \
+bin/terraform.sh \
     -p/--project `project` \
     -b/--bucket-prefix `bucket_prefix` \
     -r/--region `region` \
