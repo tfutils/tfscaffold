@@ -608,7 +608,6 @@ case "${action}" in
     terraform "${action}" \
       -input=false \
       ${refresh} \
-      -module-depth=-1 \
       ${tf_var_params} \
       ${extra_args} \
       ${destroy} \
