@@ -408,7 +408,7 @@ else
       if [[ "${secret_line}" =~ ${secret_regex} ]]; then
         var_key="${secret_line%=*}";
         var_val="${secret_line##*=}";
-        eval export TF_VAR_${var_key}="${var_val}";
+        export TF_VAR_${var_key}="${var_val}";
         ((secret_count++));
       else
         echo "Malformed secret on line ${secret_count} - ignoring";
