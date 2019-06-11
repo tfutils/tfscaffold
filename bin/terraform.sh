@@ -95,6 +95,34 @@ additional arguments:
 EOF
 };
 
+function storage_ls() {
+case "${storage_provider}" in
+  aws)
+    aws s3 ls s3://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}
+    ;;
+  gcloud)
+    gsutil ls gs://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}
+    ;;
+  azurerm)
+    az storage blob list
+    ;;
+esac
+};
+
+function storage_cp() {
+case "${storage_provider}" in
+  aws)
+    aws s3 cp s3://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}
+    ;;
+  gcloud)
+    gsutil cp gs://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}
+    ;;
+  azurerm)
+    az storage blob copy start
+    ;;
+esac
+};
+
 ##
 # Test for GNU getopt
 ##
@@ -251,16 +279,24 @@ readonly region="${region_arg:-${AWS_DEFAULT_REGION}}";
 [ -n "${storage_provider}" ] \
   || storage_provider="aws";
 
-if [ "${storage_provider}" == "aws"  ]; then
-  storage_cmd="aws s3";
+if [ "${storage_provider}" == "aws" ]; then
+  storage_cp_cmd="aws s3 cp";
+  storage_ls_cmd="aws s3 ls";
   verify_cmd="aws sts get-caller-identity --query Arn --output text";
   account_cmd="aws sts get-caller-identity --query Account --output text";
   storage_url="s3://"
 elif [ "${storage_provider}" == "gcloud" ]; then
-  storage_cmd="gsutil";
+  storage_cp_cmd="gsutil cp";
+  storage_ls_cmd="gsutil ls";
   verify_cmd="gcloud config list --format value(core.account)";
   account_cmd="gcloud config list --format value(core.project)";
   storage_url="gs://"
+elif [ "${storage_provider}" == "azurerm" ]; then
+  storage_cp_cmd="az storage blob copy start" ;
+  storage_ls_cmd="az storage blob list";
+  verify_cmd="az ad signed-in-user show --query userPrincipalName --output tsv";
+  account_cmd="az account list --query [?isDefault==\`true\`].name --output tsv";
+  storage_url="azurerm://"
 fi
 
 # Bootstrapping is special
@@ -295,15 +331,15 @@ else
   error_and_die "No Credentials Found. \"${verify_cmd}\" responded with '${verify}'";
 fi;
 
-# Query canonical AWS Account ID
-account_id="$($account_cmd)";
+# Query canonical Account ID
+account_id="$(${account_cmd})";
 if [ -n "${account_id}" ]; then
   echo -e "Account ID: ${account_id}";
 else
   error_and_die "Couldn't determine Account ID. \"${account_cmd}\" provided no output";
 fi;
 
-# Validate S3 bucket. Set default if undefined
+# Validate bucket. Set default if undefined
 if [ -n "${bucket_prefix}" ]; then
   readonly bucket="${bucket_prefix}-${account_id}-${region}"
   echo -e "Using bucket ${storage_url}${bucket}";
@@ -314,7 +350,7 @@ fi;
 
 declare component_path;
 if [ "${bootstrap}" == "true" ]; then
-  component_path="${base_path}/bootstrap";
+  component_path="${base_path}/bootstrap/${storage_provider}";
 else
   component_path="${base_path}/components/${component}";
 fi;
@@ -421,10 +457,10 @@ else
   declare -a secrets=();
   readonly secrets_file_name="secret.tfvars.enc";
   readonly secrets_file_path="build/${secrets_file_name}";
-  ${storage_cmd} ls ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
+  ${storage_ls_cmd} ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
   if [ $? -eq 0 ]; then
     mkdir -p build;
-    ${storage_cmd} cp ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
+    ${storage_cp_cmd} ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name} ${secrets_file_path} \
       || error_and_die "S3 secrets file is present, but inaccessible. Ensure you have permission to read ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${secrets_file_name}";
     if [ -f "${secrets_file_path}" ]; then
       secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
@@ -454,9 +490,9 @@ else
   # Use this feature only if you're sure it's the right pattern for your use case.
   readonly dynamic_file_name="dynamic.tfvars";
   readonly dynamic_file_path="build/${dynamic_file_name}";
-  ${storage_cmd} ls ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
+  ${storage_ls_cmd} ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
   if [ $? -eq 0 ]; then
-    ${storage_cmd} cp ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
+    ${storage_cp_cmd} ${storage_url}${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
       || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${account_id}/${region}/${environment}/${dynamic_file_name}";
   fi;
 
@@ -581,6 +617,16 @@ if [ ${storage_provider} == "gcloud" ]; then
     }
   }";
 
+elif [ ${storage_provider} == "azurerm" ]; then
+  readonly backend_config="terraform {
+    backend \"azurerm\" {
+      storage_account_name = \"${project}${region}tfstate\"
+      container_name       = \"${bucket,,}\"
+      key                  = \"${backend_key}\"
+      resource_group_name  = \"${bucket,,}\"
+    }
+  }";
+
 else
   readonly backend_config="terraform {
     backend \"s3\" {
@@ -658,7 +704,7 @@ case "${action}" in
       || error_and_die "Terraform plan failed";
 
     if [ -n "${build_id}" ]; then
-      ${storage_cmd} cp build/${plan_file_name} ${storage_url}${bucket}/${plan_file_remote_key} \
+      ${storage_cp_cmd} build/${plan_file_name} ${storage_url}${bucket}/${plan_file_remote_key} \
         || error_and_die "Plan file upload failed (${storage_url}${bucket}/${plan_file_remote_key})";
     fi;
 
@@ -687,7 +733,7 @@ case "${action}" in
       plan_file_name="${component_name}_${build_id}.tfplan";
       plan_file_remote_key="${backend_prefix}/plans/${plan_file_name}";
 
-      ${storage_cmd} cp ${storage_url}${bucket}/${plan_file_remote_key} build/${plan_file_name} \
+      ${storage_cp_cmd} ${storage_url}${bucket}/${plan_file_remote_key} build/${plan_file_name} \
         || error_and_die "Plan file download from S3 failed (s3://${bucket}/${plan_file_remote_key})";
 
       apply_plan="build/${plan_file_name}";
