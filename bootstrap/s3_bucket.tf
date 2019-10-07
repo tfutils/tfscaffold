@@ -5,7 +5,16 @@ resource "aws_s3_bucket" "tfstate_bucket" {
   force_destroy = false
 
   versioning {
-    enabled = true
+    enabled    = true
+    # mfa_delete = true
+  }
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
   }
 
   lifecycle_rule {
@@ -27,9 +36,10 @@ resource "aws_s3_bucket" "tfstate_bucket" {
     }
   }
 
-  tags = merge(local.default_tags,
+  tags = merge(
+    local.default_tags,
     map(
-      "Name", "Terraform Scaffold TFState bucket"
-    )
+      "Name", "TFScaffold TFState bucket",
+    ),
   )
 }

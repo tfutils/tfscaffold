@@ -1,7 +1,7 @@
 #!/bin/bash
 # Terraform Scaffold from @TFUtils, tweaked by @SeboLabs
 
-readonly script_ver="1.0.0";
+readonly script_ver="1.1.0";
 
 ############
 # FUNCTIONS
@@ -326,7 +326,7 @@ if [ "${bootstrap}" == "true" ]; then
   fi;
 
   # Bootstrap requires explicitly and only these parameters
-  tf_var_params+=" -var region=${region}";
+  tf_var_params+=" -var aws_region=${region}";
   tf_var_params+=" -var project=${project}";
   tf_var_params+=" -var bucket_name=${bucket}";
   tf_var_params+=" -var aws_account_id=${aws_account_id}";

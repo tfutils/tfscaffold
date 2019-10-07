@@ -9,6 +9,12 @@ I've been using it since 2017, however, many of the features introduced did not 
 
 ## Changelog
 
+### 1.1.0 (07/10/2019)
+
+ * TFState S3 Bucket encryption enabled
+ * TFState S3 Bucket nonSSL requests denied
+ * TFState Lock DDB Table encryption enabled
+
 ### 1.0.0 (25/09/2019)
 
  * Removed unsued features from original TFScaffold v. 1.4.2 by TFUtils
@@ -70,7 +76,7 @@ Where:
 
 ### TF compatibility
 
-Latest version checked: `0.12.9`
+Latest version checked: `0.12.10`
 
 ---
 ---
