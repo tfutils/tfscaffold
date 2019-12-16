@@ -1,3 +1,8 @@
+## 1.4.3 (16/12/2019)
+
+ * Remove extraneous eval from secret parsing
+ * Remove deprecated/irrelevant module-depth parameter
+
 ## 1.4.2 (05/02/2018)
 
  * Add an init with -backend=false in bootstrap mode, otherwise providers are not downloaded
