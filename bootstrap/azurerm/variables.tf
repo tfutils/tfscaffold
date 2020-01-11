@@ -3,14 +3,14 @@ variable "project" {
   description = "The name of the Project we are bootstrapping terraformscaffold for"
 }
 
-variable "aws_account_id" {
+variable "account_id" {
   type        = "string"
-  description = "The AWS Account ID into which we are bootstrapping terraformscaffold"
+  description = "The Azure Subscription ID into which we are bootstrapping terraformscaffold"
 }
 
 variable "region" {
   type        = "string"
-  description = "The AWS Region into which we are bootstrapping terraformscaffold"
+  description = "The Azure Region into which we are bootstrapping terraformscaffold"
 }
 
 variable "environment" {
