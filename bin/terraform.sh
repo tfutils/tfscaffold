@@ -1,13 +1,29 @@
 #!/bin/bash
 # Terraform Scaffold from @TFUtils, tweaked by @SeboLabs
 
-readonly script_ver="1.1.0";
+readonly script_ver="1.2.0";
 
 ############
 # FUNCTIONS
 ####################################################################################################
+color_err="\e[1m\e[31m";
+color_ok="\e[1m\e[32m";
+color_wrn="\e[1m\e[33m";
+color_end="\e[0m";
+
+function check_shell_colors {
+  if [[ ${TF_CLI_ARGS} =~ "-no-color" ]]; then
+    unset color_start;
+    unset color_end;
+    export BASHLOG_COLOURS=0;
+  fi
+}
+
 function error_and_die {
-  echo -e "\n\e[1m\e[33m[ERROR]\e[0m ${1}" >&2;
+  color_start=$color_err;
+  check_shell_colors;
+
+  echo -e "\n${color_start}[ERROR]${color_end} ${1}" >&2;
   exit 1;
 };
 
@@ -15,18 +31,19 @@ function log {
   case $1 in
     info)
       level="INFO";
-      color="\e[1m\e[32m"
+      color_start=$color_ok;
       ;;
     warn)
       level="WARNING";
-      color="\e[1m\e[33m"
+      color_start=$color_wrn;
       ;;
     *)
       ;;
   esac;
   message=$2;
+  check_shell_colors;
 
-  echo -e "\n${color}[${level}]\e[0m ${message}";
+  echo -e "\n${color_start}[${level}]${color_end} ${message}";
 }
 
 function version {
@@ -42,6 +59,7 @@ Usage: ${0} \\
   -e/--environment   [environment] \\
   -g/--group         [group]
   -p/--project       [project] \\
+  -o/--output-plan   [output_plan] \\
   -r/--region        [region] \\
   -- \\
   <additional arguments to forward to the terraform binary call>
@@ -102,8 +120,8 @@ fi;
 
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
-  -o hva:b:c:e:g:i:p:r: \
-  -l "help,version,bootstrap,action:,bucket-prefix:,component:,environment:,group:,project:,region:" \
+  -o hva:b:c:e:g:i:p:r:o: \
+  -l "help,version,bootstrap,action:,bucket-prefix:,component:,environment:,group:,project:,region:,output-plan:" \
   -n "${0}" \
   -- \
   "$@" \
@@ -181,6 +199,14 @@ while true; do
       shift;
       if [ -n "${1}" ]; then
         project="${1}";
+        shift;
+      fi;
+      ;;
+    -o|--output-plan)
+      shift;
+      declare output_plan;
+      if [ -n "${1}" ]; then
+        output_plan="${1}";
         shift;
       fi;
       ;;
@@ -276,6 +302,7 @@ fi;
 case "${action}" in
   apply)
     refresh="-refresh=true";
+    out_plan="${output_plan}"
     ;;
   destroy)
     destroy='-destroy';
@@ -284,6 +311,7 @@ case "${action}" in
     ;;
   plan)
     refresh="-refresh=true";
+    out_plan="-out=${output_plan}"
     ;;
   plan-destroy)
     action="plan";
@@ -382,9 +410,11 @@ else
     && log "warn" "Duplicated variables found:\n${duplicate_variables}";
 
   # Build up the tfvars arguments for terraform command line
-  for file_path in "${tf_var_file_paths[@]}"; do
-    tf_var_params+=" -var-file=${file_path}";
-  done;
+  if [[ "${action}" != "apply" ]] || ([[ "${action}" == "apply" && -z "$output_plan" ]]); then
+    for file_path in "${tf_var_file_paths[@]}"; do
+      tf_var_params+=" -var-file=${file_path}";
+    done;
+  fi;
 fi;
 
 ############################
@@ -460,7 +490,7 @@ case "${action}" in
       ${tf_var_params} \
       ${extra_args} \
       ${destroy} \
-      ${out} \
+      ${out_plan} \
       || error_and_die "Terraform plan failed";
 
     exit ${status};
@@ -482,7 +512,8 @@ case "${action}" in
       ${tf_var_params} \
       -parallelism=10 \
       ${extra_args} \
-      ${force};
+      ${force} \
+      ${out_plan};
     exit_code=$?;
 
     if [ "${bootstrapped}" == "false" ]; then
