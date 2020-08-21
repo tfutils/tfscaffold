@@ -91,7 +91,16 @@ EOF
 ##
 # Test for GNU getopt
 ##
-getopt_out=$(getopt -T)
+getopt_tool=getopt
+if [[ $(uname) == "Darwin" ]]; then # OSX specific
+  brew --prefix gnu-getopt > /dev/null 2>&1
+
+  if [[ $? == 0 ]]; then
+    getopt_tool="$(brew --prefix gnu-getopt)/bin/getopt"
+  fi
+fi
+
+getopt_out=$($getopt_tool -T)
 if (( $? != 4 )) && [[ -n $getopt_out ]]; then
   error_and_die "Non GNU getopt detected. If you're using a Mac then try \"brew install gnu-getopt\"";
 fi
@@ -100,7 +109,7 @@ fi
 # Execute getopt and process script arguments
 ##
 readonly raw_arguments="${*}";
-ARGS=$(getopt \
+ARGS=$($getopt_tool \
          -o hva:b:c:e:g:i:p:r: \
          -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:" \
          -n "${0}" \
