@@ -67,7 +67,7 @@ build_id (optional):
 
 component_name:
  - the name of the terraform component module in the components directory
-  
+
 environment:
  - dev
  - test
@@ -337,7 +337,12 @@ case "${action}" in
     ;;
   destroy)
     destroy='-destroy';
-    force='-force';
+    if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
+      echo "Compatibility: Adding to terraform arguments: -force";
+      force='-force';
+    else
+    extra_args+=" -auto-approve";
+    fi;
     refresh="-refresh=true";
     ;;
   plan)
@@ -432,7 +437,7 @@ if [ $? -eq 0 ]; then
     secrets=($(aws kms decrypt --ciphertext-blob fileb://${secrets_file_path} --output text --query Plaintext | base64 --decode));
   fi;
 fi;
-  
+
 if [ -n "${secrets[0]}" ]; then
   secret_regex='^[A-Za-z0-9_-]+=.+$';
   secret_count=1;
@@ -447,7 +452,7 @@ if [ -n "${secrets[0]}" ]; then
     fi;
   done;
 fi;
-      
+
 # Pull down additional dynamic plaintext tfvars file from S3
 # Anti-pattern warning: Your variables should almost always be in source control.
 # There are a very few use cases where you need constant variability in input variables,
@@ -461,20 +466,20 @@ if [ $? -eq 0 ]; then
   aws s3 cp s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} ${dynamic_file_path} \
     || error_and_die "S3 tfvars file is present, but inaccessible. Ensure you have permission to read s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name}";
 fi;
-  
+
 # Use versions TFVAR files if exists
 readonly versions_file_name="versions_${region}_${environment}.tfvars";
 readonly versions_file_path="${base_path}/etc/${versions_file_name}";
-  
+
 # Check for presence of an environment variables file, and use it if readable
 if [ -n "${environment}" ]; then
   readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
 fi;
-  
+
 # Check for presence of a global variables file, and use it if readable
 readonly global_vars_file_name="global.tfvars";
 readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
-  
+
 # Check for presence of a region variables file, and use it if readable
 readonly region_vars_file_name="${region}.tfvars";
 readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
@@ -484,10 +489,10 @@ if [ -n "${group}" ]; then
   readonly group_vars_file_name="group_${group}.tfvars";
   readonly group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
 fi;
-  
+
 # Collect the paths of the variables files to use
 declare -a tf_var_file_paths;
-  
+
 # Use Global and Region first, to allow potential for terraform to do the
 # honourable thing and override global and region settings with environment
 # specific ones; however we do not officially support the same variable
@@ -535,12 +540,12 @@ ${duplicate_variables}
 This could lead to unexpected behaviour. Overriding of variables
 has previously been unpredictable and is not currently supported,
 but it may work.
- 
+
 Recent changes to terraform might give you useful overriding and
 map-merging functionality, please use with caution and report back
 on your successes & failures.
 ###################################################################";
-  
+
 # Build up the tfvars arguments for terraform command line
 for file_path in "${tf_var_file_paths[@]}"; do
   tf_var_params+=" -var-file=${file_path}";
@@ -616,7 +621,7 @@ if [ "${bootstrapped}" == "true" ]; then
 
   # Nix the horrible hack on exit
   trap "rm -f $(pwd)/backend_tfscaffold.tf" EXIT;
- 
+
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   terraform init -upgrade ${no_color} ${compact_warnings} \
