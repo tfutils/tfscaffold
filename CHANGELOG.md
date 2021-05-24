@@ -1,3 +1,22 @@
+## 1.6.1 (24/05/2021)
+
+FEATURES:
+
+ * Added `-d/--detailed-exitcode` to propagate terraform exit codes to shell
+ * Added `-n/--no-color` appends -co-color to all tf calls
+ * Added `-w/--compact-warnings` appends -compact-warnings to all terraform calls
+
+BUG FIXES:
+
+ * Getopt fixes
+ * Various small fixes
+
+NOTES:
+
+ * Support for early versions of terraform has been dropped (<0.11)
+ * Default backend bucket name has changed, pass in -b to overwrite
+ * Scaffold bootstrap updated
+
 ## 1.4.3 (16/12/2019)
 
  * Remove extraneous eval from secret parsing

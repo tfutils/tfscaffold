@@ -105,14 +105,17 @@ The terraformscaffold script is invoked as bin/terraform.sh. Once a state bucket
 
 ```bash
 bin/terraform.sh \
-  -a/--action        `action` \
-  -b/--bucket-prefix `bucket_prefix` \
-  -c/--component     `component_name` \
-  -e/--environment   `environment` \
-  -g/--group         `group` (optional) \
-  -i/--build-id      `build_id` (optional) \
-  -p/--project       `project` \
-  -r/--region        `region` \
+  -a/--action            `action` \
+  -b/--bucket-prefix     `bucket_prefix` \
+  -c/--component         `component_name` \
+  -e/--environment       `environment` \
+  -g/--group             `group` (optional) \
+  -i/--build-id          `build_id` (optional) \
+  -p/--project           `project` \
+  -r/--region            `region` \
+  -d/--detailed-exitcode (optional) \
+  -n/--no-color          (optional) \
+  -w/--compact-warnings  (optional) \
   -- \
   <additional arguments to forward to the terraform binary call>
 ```
@@ -133,4 +136,7 @@ Where:
 * `group` (optional): The name of the group to which the environment belongs, permitting the use of a group tfvars file as a "meta-environment" shared by more than one environment
 * `project`: The name of the project being deployed, as per the default bucket-prefix and state file keyspace
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.
+* `detailed-exitcode` (optional): Passes detailed exit code flag to terraform.
+* `no-color` (optional): Passes no-color flag to terraform.
+* `compact-warnings` (optional): Passes compact-warnings flag to terraform.
 * `additional arguments`: Any arguments provided after "--" will be passed directly to terraform as its own arguments, e.g. allowing the provision of a 'target=value' parameter.
