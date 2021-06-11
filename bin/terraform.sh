@@ -370,7 +370,7 @@ declare default_plugin_cache_dir="$(pwd)/plugin-cache";
 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${default_plugin_cache_dir}}"
 mkdir -p "${TF_PLUGIN_CACHE_DIR}" \
   || error_and_die "Failed to created the plugin-cache directory (${TF_PLUGIN_CACHE_DIR})";
-[ -w ${TF_PLUGIN_CACHE_DIR} ] \
+[ -w "${TF_PLUGIN_CACHE_DIR}" ] \
   || error_and_die "plugin-cache directory (${TF_PLUGIN_CACHE_DIR}) not writable";
 
 # Clear cache, safe enough as we enforce plugin cache
