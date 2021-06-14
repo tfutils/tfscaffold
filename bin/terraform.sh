@@ -337,11 +337,11 @@ case "${action}" in
     ;;
   destroy)
     destroy='-destroy';
-    if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
+    if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f1) == "v0" ] && [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
       echo "Compatibility: Adding to terraform arguments: -force";
       force='-force';
     else
-    extra_args+=" -auto-approve";
+      extra_args+=" -auto-approve";
     fi;
     refresh="-refresh=true";
     ;;
