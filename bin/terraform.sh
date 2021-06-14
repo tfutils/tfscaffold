@@ -123,7 +123,7 @@ fi
 # Execute getopt and process script arguments
 ##
 readonly raw_arguments="${*}";
-ARGS=$(getopt_tool \
+ARGS=$($getopt_tool \
          -o dhnvwa:b:c:e:g:i:p:r: \
          -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,detailed-exitcode,no-color,compact-warnings" \
          -n "${0}" \
