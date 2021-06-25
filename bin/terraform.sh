@@ -337,12 +337,6 @@ case "${action}" in
     ;;
   destroy)
     destroy='-destroy';
-    if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f1) == "v0" ] && [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
-      echo "Compatibility: Adding to terraform arguments: -force";
-      force='-force';
-    else
-      extra_args+=" -auto-approve";
-    fi;
     refresh="-refresh=true";
     ;;
   plan)
@@ -381,6 +375,7 @@ mkdir -p "${TF_PLUGIN_CACHE_DIR}" \
 # Clear cache, safe enough as we enforce plugin cache
 rm -rf ${component_path}/.terraform;
 
+# Run global pre.sh
 if [ -f "pre.sh" ]; then
   source pre.sh "${region}" "${environment}" "${action}" \
     || error_and_die "Global pre script execution failed with exit code ${?}";
@@ -413,7 +408,7 @@ if [ "${bootstrap}" == "true" ]; then
   tf_var_params+=" -var bucket_name=${bucket}";
 fi;
 
-# Run pre.sh
+# Run component-specific pre.sh
 if [ -f "pre.sh" ]; then
   source pre.sh "${region}" "${environment}" "${action}" \
     || error_and_die "Component pre script execution failed with exit code ${?}";
@@ -690,6 +685,14 @@ case "${action}" in
     if [ "${action}" == "apply" ]; then
       echo "Compatibility: Adding to terraform arguments: -auto-approve=true";
       extra_args+=" -auto-approve=true";
+    else # action is `destroy`
+      # Check terraform version - if pre-0.15, need to add `-force`; 0.15 and above instead use `-auto-approve`
+      if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f1) == "v0" ] && [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
+        echo "Compatibility: Adding to terraform arguments: -force";
+        force='-force';
+      else
+        extra_args+=" -auto-approve";
+      fi;
     fi;
 
     if [ -n "${build_id}" ]; then
