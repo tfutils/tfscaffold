@@ -29,7 +29,7 @@ Important Note: Variables in the Env and Versions variables files are not merged
 
 ### State File Location Consistency and Referencing
 
-Scaffold uses AWS S3 for storage of tfstate files. The bucket and location are specifically defined to be predictable to organise their storage and permit the use of terraform_remote_state resources. Any scaffold component can reliably refer to the S3 location of the state file for another component and depend upon the outputs provided. The naming convention is:     _s3://${project}-terraformscaffold-${aws_account_id}-${aws_region}/${project}/${aws_account_id}/${aws_region}/${environment}/${component}.tfstate_. Each functional scaffold S3 bucket will only therefore contain content within the keyspace _/${project}/${aws_account_id}/${aws_region}_ as these are unique to the bucket as well as all contents. The reason for the use of this keyspace is to permit the aggregation of state files from multiple bucket into a master bucket for backup or read-only review purposes. All scaffold buckets relevant to a person or organisation could be safely synchronised to a single bucket without fear of keyspace overlap.
+Scaffold uses AWS S3 for storage of tfstate files. The bucket and location are specifically defined to be predictable to organise their storage and permit the use of terraform_remote_state resources. Any scaffold component can reliably refer to the S3 location of the state file for another component and depend upon the outputs provided. The naming convention is:     _s3://${project}-tfscaffold-${aws_account_id}-${aws_region}/${project}/${aws_account_id}/${aws_region}/${environment}/${component}.tfstate_. Each functional scaffold S3 bucket will only therefore contain content within the keyspace _/${project}/${aws_account_id}/${aws_region}_ as these are unique to the bucket as well as all contents. The reason for the use of this keyspace is to permit the aggregation of state files from multiple bucket into a master bucket for backup or read-only review purposes. All scaffold buckets relevant to a person or organisation could be safely synchronised to a single bucket without fear of keyspace overlap.
 
 ### Variables Files: Environment & Versions
 
@@ -96,7 +96,7 @@ bin/terraform.sh \
 
 Where:
 * `project`: the name of the project to have a terraform bootstrap applied
-* `bucket_prefix` (optional - use only with caution): Defaults to: `${project}-terraformscaffold"`
+* `bucket_prefix` (optional - use only with caution): Defaults to: `${project}-tfscaffold"`
 * `region` (optional): Defaults to value of the AWS_DEFAULT_REGION environment variable
 
 ### Running
@@ -122,7 +122,7 @@ bin/terraform.sh \
 
 Where:
 * `action`: Terraform action (or pseudo-action) to take, e.g. plan, apply, plan-destroy (runs plan with the -destroy flag), destroy, show
-* `bucket_prefix` (optional): Defaults to: `${project_name}-terraformscaffold` - Only for use where a different bucket prefix has been bootstrapped
+* `bucket_prefix` (optional): Defaults to: `${project_name}-tfscaffold` - Only for use where a different bucket prefix has been bootstrapped
 * `build_id` (optional): Used in conjunction with the plan and apply actions, `build_id` causes the creation and consumption of terraform plan files (.tfplan)
   * When `build_id` is omitted:
     * "Plan" provides normal plan output without generating a plan file
