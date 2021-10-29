@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.6.1";
+readonly script_ver="1.7.0";
 
 ##
 # Standardised failure function
@@ -52,6 +52,7 @@ action:
     * apply / destroy
     * graph
     * taint / untaint
+    * shell
 - Generic actions:
     * See https://www.terraform.io/docs/commands/
 
@@ -679,7 +680,7 @@ case "${action}" in
       || error_and_die "Terraform verbose graph generation failed";
     exit 0;
     ;;
-  'apply'|'destroy')
+  'apply'|'destroy'|'refresh')
 
     # Support for terraform <0.10 is now deprecated
     if [ "${action}" == "apply" ]; then
@@ -762,6 +763,10 @@ case "${action}" in
     ;;
   'import')
     terraform "${action}" ${tf_var_params} ${extra_args} || error_and_die "Terraform ${action} failed.";
+    ;;
+  'shell')
+    echo -e "Here's a shell for the ${component} component.\nIf you want to run terraform actions specific to the ${environment} environment, pass the following options to your terraform commands:\n\n${tf_var_params} ${extra_args}\n\n'exit 0' / 'Ctrl-D' to continue, other exit codes will abort tfscaffold with the same code.";
+    bash -l || exit "${?}";
     ;;
   *)
     echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";

@@ -1,3 +1,7 @@
+## 1.7.0 (29/10/2021)
+
+ * Added custom action `shell`: a bash login shell between component init and cleanup
+
 ## 1.6.1 (24/05/2021)
 
 FEATURES:
