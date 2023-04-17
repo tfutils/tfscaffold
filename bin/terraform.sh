@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.7.0";
+readonly script_ver="1.7.1";
 
 ##
 # Standardised failure function
@@ -134,7 +134,7 @@ declare bootstrap="false";
 declare component_arg;
 declare region_arg;
 declare environment_arg;
-declare group;
+declare groups;
 declare action;
 declare bucket_prefix;
 declare build_id;
@@ -174,10 +174,10 @@ while true; do
         shift;
       fi;
       ;;
-    -g|--group)
+    -g|--group|--groups)
       shift;
       if [ -n "${1}" ]; then
-        group="${1}";
+        groups="${1}";
         shift;
       fi;
       ;;
@@ -480,12 +480,6 @@ readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
 readonly region_vars_file_name="${region}.tfvars";
 readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
 
-# Check for presence of a group variables file if specified, and use it if readable
-if [ -n "${group}" ]; then
-  readonly group_vars_file_name="group_${group}.tfvars";
-  readonly group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
-fi;
-
 # Collect the paths of the variables files to use
 declare -a tf_var_file_paths;
 
@@ -501,13 +495,16 @@ declare -a tf_var_file_paths;
 # the warning about duplicate variables below) we add this to the list after
 # global and region-global variables, but before the environment variables
 # so that the environment can explicitly override variables defined in the group.
-if [ -n "${group}" ]; then
+for group in ${groups//,/"${IFS}"}; do
+  group_vars_file_name="group_${group}.tfvars";
+  group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
+
   if [ -f "${group_vars_file_path}" ]; then
     tf_var_file_paths+=("${group_vars_file_path}");
   else
     echo -e "[WARNING] Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
   fi;
-fi;
+done;
 
 # Environment is normally expected, but in bootstrapping it may not be provided
 if [ -n "${environment}" ]; then
