@@ -1,3 +1,7 @@
+## 1.7.1 (14/07/2023)
+
+ * Explicitly declare and clear out, refresh and destroy in case someone exports them
+
 ## 1.7.0 (29/10/2021)
 
  * Added custom action `shell`: a bash login shell between component init and cleanup
