@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.7.0";
+readonly script_ver="1.7.1";
 
 ##
 # Standardised failure function
