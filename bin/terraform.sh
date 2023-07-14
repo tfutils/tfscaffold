@@ -142,6 +142,9 @@ declare project;
 declare detailed_exitcode;
 declare no_color;
 declare compact_warnings;
+declare out="";
+declare destroy="";
+declare refresh="";
 
 while true; do
   case "${1}" in
