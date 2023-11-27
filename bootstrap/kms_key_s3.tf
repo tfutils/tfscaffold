@@ -15,3 +15,8 @@ resource "aws_kms_key" "s3" {
     Account     = var.aws_account_id
   }
 }
+
+resource "aws_kms_alias" "s3" {
+  name          = "alias/tfscaffold-s3-bucket-key"
+  target_key_id = aws_kms_key.s3.key_id
+}

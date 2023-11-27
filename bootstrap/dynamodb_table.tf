@@ -1,7 +1,12 @@
-resource "aws_s3_bucket" "bucket" {
-  bucket = var.bucket_name
+resource "aws_dynamodb_table" "terraform_state_lock" {
+  name         = "terraform_state_lock"
+  hash_key     = "LockID"
+  billing_mode = "PAY_PER_REQUEST"
 
-  force_destroy = "false"
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
 
   # This does not use default tag map merging because bootstrapping is special
   # You should use default tag map merging elsewhere
