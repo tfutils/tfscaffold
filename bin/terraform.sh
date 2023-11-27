@@ -581,9 +581,10 @@ fi;
 readonly backend_key="${backend_prefix}/${backend_filename}";
 readonly backend_config="terraform {
   backend \"s3\" {
-    region = \"${region}\"
-    bucket = \"${bucket}\"
-    key    = \"${backend_key}\"
+    region         = \"${region}\"
+    bucket         = \"${bucket}\"
+    key            = \"${backend_key}\"
+    dynamodb_table = \"terraform_state_lock\"
   }
 }";
 
