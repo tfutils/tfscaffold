@@ -111,9 +111,11 @@ bin/terraform.sh \
   -e/--environment       `environment` \
   -g/--group             `group` (optional) \
   -i/--build-id          `build_id` (optional) \
+  -l/--lockfile          `mode` (optional) \
   -p/--project           `project` \
   -r/--region            `region` \
   -d/--detailed-exitcode (optional) \
+  -t/--lock-table        (optional) \
   -n/--no-color          (optional) \
   -w/--compact-warnings  (optional) \
   -- \
@@ -134,9 +136,11 @@ Where:
 * `component_name`: The name of the terraform component in the components directory to run the `action` against.
 * `environment`: The name of the environment the component is to be actioned against, therefore implying the variables file(s) to be included
 * `group` (optional): The name of the group to which the environment belongs, permitting the use of a group tfvars file as a "meta-environment" shared by more than one environment
+* `lockfile` (optional): Passes the given lockfile mode to terraform.
 * `project`: The name of the project being deployed, as per the default bucket-prefix and state file keyspace
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.
 * `detailed-exitcode` (optional): Passes detailed exit code flag to terraform.
+* `lock-table` (optional): Tells tfscaffold to use a DynamoDB Table with the same name as the S3 Bucket for state file locking
 * `no-color` (optional): Passes no-color flag to terraform.
 * `compact-warnings` (optional): Passes compact-warnings flag to terraform.
 * `additional arguments`: Any arguments provided after "--" will be passed directly to terraform as its own arguments, e.g. allowing the provision of a 'target=value' parameter.

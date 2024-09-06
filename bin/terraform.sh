@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.7.1";
+readonly script_ver="1.9.0";
 
 ##
 # Standardised failure function
@@ -38,10 +38,12 @@ Usage: ${0} \\
   -e/--environment   [environment] \\
   -g/--group         [group]
   -i/--build-id      [build_id] (optional) \\
+  -l/--lockfile      [mode] \\
   -p/--project       [project] \\
   -r/--region        [region] \\
   -d/--detailed-exitcode \\
   -n/--no-color \\
+  -t/--lock-table \\
   -w/--compact-warnings \\
   -- \\
   <additional arguments to forward to the terraform binary call>
@@ -92,11 +94,20 @@ detailed-exitcode (optional):
  Changes the plan operation to exit 0 only when there are no changes.
  Will be ignored for actions other than plan.
 
+lock-table (optional):
+  When not provided, false.
+  Adds a dynamodb_table statement to the S3 backend configuration
+  to use a DynamoDB table with the same name as the S3 bucket
+  for terraform state locking.
+
 no-color (optional):
  Append -no-color to all terraform calls
 
 compact-warnings (optional):
  Append -compact-warnings to all terraform calls
+
+lockfile:
+ Append -lockfile=MODE to calls to terraform init
 
 additional arguments:
  Any arguments provided after "--" will be passed directly to terraform as its own arguments
@@ -116,8 +127,8 @@ fi
 ##
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
-         -o dhnvwa:b:c:e:g:i:p:r: \
-         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,detailed-exitcode,no-color,compact-warnings" \
+         -o dhntvwa:b:c:e:g:i:l:p:r: \
+         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings" \
          -n "${0}" \
          -- \
          "$@");
@@ -138,8 +149,10 @@ declare group;
 declare action;
 declare bucket_prefix;
 declare build_id;
+declare lockfile;
 declare project;
 declare detailed_exitcode;
+declare lock_table;
 declare no_color;
 declare compact_warnings;
 declare out="";
@@ -205,6 +218,13 @@ while true; do
         shift;
       fi;
       ;;
+    -l|--lockfile)
+      shift;
+      if [ -n "${1}" ]; then
+        lockfile="-lockfile=${1}";
+        shift;
+      fi;
+      ;;
     -p|--project)
       shift;
       if [ -n "${1}" ]; then
@@ -219,6 +239,10 @@ while true; do
     -d|--detailed-exitcode)
       shift;
       detailed_exitcode="true";
+      ;;
+    -t|--lock-table)
+      shift;
+      lock_table="true";
       ;;
     -n|--no-color)
       shift;
@@ -272,6 +296,7 @@ if [ "${bootstrap}" == "true" ]; then
     && error_and_die "The --bootstrap parameter and the -c/--component parameter are mutually exclusive";
   [ -n "${build_id}" ] \
     && error_and_die "The --bootstrap parameter and the -i/--build-id parameter are mutually exclusive. We do not currently support plan files for bootstrap";
+  [ -n "${environment_arg}" ] && readonly environment="${environment_arg}";
 else
   # Validate component to work with
   [ -n "${component_arg}" ] \
@@ -536,13 +561,8 @@ The following input variables appear to be duplicated:
 
 ${duplicate_variables}
 
-This could lead to unexpected behaviour. Overriding of variables
-has previously been unpredictable and is not currently supported,
-but it may work.
-
-Recent changes to terraform might give you useful overriding and
-map-merging functionality, please use with caution and report back
-on your successes & failures.
+Ensure this is intentional behaviour, and that the order of
+precedence for variable values is as you expect.
 ###################################################################";
 
 # Build up the tfvars arguments for terraform command line
@@ -579,13 +599,25 @@ else
 fi;
 
 readonly backend_key="${backend_prefix}/${backend_filename}";
-readonly backend_config="terraform {
+declare backend_config
+if [ "${lock_table}" == "true" ]; then
+  backend_config="terraform {
+  backend \"s3\" {
+    region         = \"${region}\"
+    bucket         = \"${bucket}\"
+    key            = \"${backend_key}\"
+    dynamodb_table = \"${bucket}\"
+  }
+}";
+else
+  backend_config="terraform {
   backend \"s3\" {
     region = \"${region}\"
     bucket = \"${bucket}\"
     key    = \"${backend_key}\"
   }
 }";
+fi;
 
 # We're now all ready to go. All that's left is to:
 #   * Write the backend config
@@ -621,9 +653,13 @@ if [ "${bootstrapped}" == "true" ]; then
   # Nix the horrible hack on exit
   trap "rm -f $(pwd)/backend_tfscaffold.tf" EXIT;
 
+  declare lockfile_or_upgrade;
+  [ -n ${lockfile} ] && lockfile_or_upgrade='-upgrade' || lockfile_or_upgrade="${lockfile}";
+
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
-  terraform init -upgrade ${no_color} ${compact_warnings} \
+  [ "${lock_table}" == "true" ] && echo "Using DynamoDB Table for state locking: ${bucket}";
+  terraform init ${no_color} ${compact_warnings} ${lockfile_or_upgrade} \
     || error_and_die "Terraform init failed";
 else
   # We are bootstrapping. Download the providers, skip the backend config.
@@ -631,6 +667,7 @@ else
     -backend=false \
     ${no_color} \
     ${compact_warnings} \
+    ${lockfile} \
     || error_and_die "Terraform init failed";
 fi;
 
@@ -739,7 +776,7 @@ case "${action}" in
 
         # Push Terraform Remote State to S3
         # TODO: Add -upgrade to init when we drop support for <0.10
-        echo "yes" | terraform init || error_and_die "Terraform init failed";
+        echo "yes" | terraform init ${lockfile} || error_and_die "Terraform init failed";
 
         # Hard cleanup
         rm -f backend_tfscaffold.tf;
