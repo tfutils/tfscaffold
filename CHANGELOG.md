@@ -1,3 +1,24 @@
+## 1.9.0 (06/09/2024)
+
+FEATURES:
+
+ * New options:
+   * -l/--lockfile: Local lock file
+   * -t/--lock-table: Lock with DynamoDB Table 
+ * Bootstrap:
+   * New multi-resource approach to S3 Bucket
+   * KMS Key Alias for S3 Bucket KMS Key, for easy data-sourcing elsewhere
+   * New tfscaffold: prefix for tfscaffold tags
+ * Updated the warning for duplicate input variables
+
+BUG FIXES:
+
+ * Some alignment and ordering
+
+## 1.8.0 (Unreleased)
+
+ * Merged into 1.9.0
+
 ## 1.7.0 (29/10/2021)
 
  * Added custom action `shell`: a bash login shell between component init and cleanup

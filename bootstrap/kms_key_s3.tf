@@ -7,11 +7,10 @@ resource "aws_kms_key" "s3" {
 
   # This does not use default tag map merging because bootstrapping is special
   # You should use default tag map merging elsewhere
-  tags = {
-    Name        = "tfscaffold Bootstrap S3 Bucket"
-    Environment = var.environment
-    Project     = var.project
-    Component   = var.component
-    Account     = var.aws_account_id
-  }
+  tags = merge(
+    local.default_tags,
+    {
+      Name = "tfscaffold Bootstrap S3 Bucket"
+    }
+  )
 }
