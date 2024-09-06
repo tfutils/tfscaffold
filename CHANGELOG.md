@@ -1,3 +1,9 @@
+## 1.9.1 (06/09/2024)
+
+BUG FIXES:
+
+ * Correct selection of `lockfile_or_upgrade`, thanks to @edmundcraske-bjss
+
 ## 1.9.0 (06/09/2024)
 
 FEATURES:

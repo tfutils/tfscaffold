@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.9.0";
+readonly script_ver="1.9.1";
 
 ##
 # Standardised failure function
@@ -654,7 +654,7 @@ if [ "${bootstrapped}" == "true" ]; then
   trap "rm -f $(pwd)/backend_tfscaffold.tf" EXIT;
 
   declare lockfile_or_upgrade;
-  [ -n ${lockfile} ] && lockfile_or_upgrade='-upgrade' || lockfile_or_upgrade="${lockfile}";
+  [ -n ${lockfile} ] && lockfile_or_upgrade="${lockfile}" || lockfile_or_upgrade='-upgrade';
 
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
