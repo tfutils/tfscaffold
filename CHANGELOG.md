@@ -1,3 +1,41 @@
+## 2.0.0 (02/12/2024)
+
+BREAKING CHANGES:
+
+ * It is now possible, with a validation check, to destroy the bootstrap.
+ * Bootstrap and the example component have been completely rewritten.
+ * `.terraform` and `backend_tfscaffold.tf` no longer removed during bootstrap cleanup
+ * Bootstrap and examples now configured to use terraform >= 1.10.0.
+ * Bootstrap and examples now require terraform > 1.0.0.
+ * Bootstrap and examples now require AWS Provider ~> 5.79.0.
+ * tfscaffold tagging default have changed to prefix tag keys with tfscaffold:
+
+FEATURES:
+
+ * Bootstraps can now be fully and cleanly destroyed, however only interactively,
+   requiring a manual text input to confirm.
+ * A DynamoDB lock table has been added to Bootstrap.
+ * Bootstrap now uses AWS Provider v4+ S3 Bucket property resources instead
+   of declaring all configuration in a single bucket resource.
+ * The example component has been rewritten to reflect modern naming standards,
+   and idempotency structures.
+ * An example module has been added, which is called from the example component.
+ * Example region changed to eu-west-2.
+ * `bin/docs.sh` has been added to recursively apply terraform-docs
+   (https://github.com/terraform-docs/terraform-docs) to all directories beneath
+   the project root that contain a variables.tf file.
+ * Remove unnecessary compatability log entry for auto-approve.
+ * Remove unnecessary non-current version transitions from the bootstrap bucket.
+
+BUG FIXES:
+
+ * Do not write `.terraform.output.json` after a destroy.
+ * `-compact-warnings` is no longer passed to `terraform init`
+
+CHORES:
+
+ * `.gitignore` updated
+
 ## 1.10.2 (02/12/2024)
 
 BUG FIXES:

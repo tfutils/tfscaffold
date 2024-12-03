@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver='1.10.2';
+readonly script_ver='2.0.0';
 
 ##
 # Standardised failure function
@@ -438,7 +438,11 @@ declare tf_var_params;
 
 if [ "${bootstrap}" == 'true' ]; then
   if [ "${action}" == "destroy" ]; then
-    error_and_die 'You cannot destroy a bootstrap bucket using tfscaffold, it's just too dangerous. If you're absolutely certain that you want to delete the bucket and all contents, including any possible state files environments and components within this project, then you will need to do it from the AWS Console. Note you cannot do this from the CLI because the bootstrap bucket is versioned, and even the --force CLI parameter will not empty the bucket of versions';
+    echo -en "\n#####################\n# ALERT ALERT ALERT #\n#####################\n\nDo you *really* want to destroy this bootstrap?\n\nPerforming this action will delete your WHOLE STATE BUCKET (${bucket}) AND ALL ITS CONTENTS FOR ALL ENVIRONMENTS.\nAny state files you have created as part of this tfscaffold project will be IRRECOVERABLY DELETED! Forever!\n\nAcknowledge by typing out this exact sentence, removing all + characters: \"I+am+not+an+idiot,+I+know+what+I+am+doing!\": ";
+    read destroy_response;
+    if [ "${destroy_response}" != 'I am not an idiot, I know what I am doing!' ]; then
+      error_and_die "ABORT ABORT ABORT!! YOU ARE AN IDIOT!!";
+    fi;
   fi;
 
   # Bootstrap requires this parameter as explicit as it is constructed here
@@ -668,14 +672,18 @@ if [ "${bootstrapped}" == 'true' ]; then
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   [ "${lock_table}" == 'true' ] && echo "Using DynamoDB Table for state locking: ${bucket}";
-  terraform init ${no_color} ${compact_warnings} ${lockfile_or_upgrade} \
+  terraform init ${no_color} ${lockfile_or_upgrade} \
     || error_and_die 'Terraform init failed';
+
+  if [ "${action}" == 'destroy' ] && [ "${destroy_response}" == 'I am not an idiot, I know what I am doing!' ]; then
+    echo -e "terraform {\n  backend \"local\" {}\n}" > backend_tfscaffold.tf;
+    terraform init -migrate-state -force-copy;
+  fi;
 else
   # We are bootstrapping. Download the providers, skip the backend config.
   terraform init \
     -backend=false \
     ${no_color} \
-    ${compact_warnings} \
     ${lockfile} \
     || error_and_die 'Terraform init failed';
 fi;
@@ -740,7 +748,6 @@ case "${action}" in
 
     # Support for terraform <0.10 is now deprecated
     if [ "${action}" == 'apply' ]; then
-      echo 'Compatibility: Adding to terraform arguments: -auto-approve=true';
       extra_args+=' -auto-approve=true';
     else # action is `destroy`
       # Check terraform version - if pre-0.15, need to add `-force`; 0.15 and above instead use `-auto-approve`
@@ -795,9 +802,7 @@ case "${action}" in
         echo 'yes' | terraform init ${lockfile} || error_and_die 'Terraform init failed';
 
         # Hard cleanup
-        rm -f backend_tfscaffold.tf;
         rm -f terraform.tfstate # Prime not the backup
-        rm -rf .terraform;
 
         # This doesn't mean anything here, we're just celebrating!
         bootstrapped='true';
@@ -809,7 +814,7 @@ case "${action}" in
       error_and_die "Terraform ${action} failed with exit code ${exit_code}";
     fi;
 
-    if [ "${output_json}" == 'true' ]; then
+    if [ "${output_json}" == 'true' ] && [ "${action}" != 'destroy' ]; then
       echo "Writing terraform output to $(pwd)/.terraform.output.json";
       terraform output -json -no-color > .terraform.output.json;
     fi;

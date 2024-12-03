@@ -1,4 +1,4 @@
-data "aws_iam_policy_document" "bucket" {
+data "aws_iam_policy_document" "s3_main" {
   statement {
     sid    = "DontAllowNonSecureConnection"
     effect = "Deny"
@@ -8,8 +8,8 @@ data "aws_iam_policy_document" "bucket" {
     ]
 
     resources = [
-      aws_s3_bucket.bucket.arn,
-      "${aws_s3_bucket.bucket.arn}/*",
+      aws_s3_bucket.main.arn,
+      "${aws_s3_bucket.main.arn}/*",
     ]
 
     principals {
@@ -39,7 +39,7 @@ data "aws_iam_policy_document" "bucket" {
     ]
 
     resources = [
-      aws_s3_bucket.bucket.arn,
+      aws_s3_bucket.main.arn,
     ]
 
     principals {
@@ -57,7 +57,7 @@ data "aws_iam_policy_document" "bucket" {
     ]
 
     resources = [
-      "${aws_s3_bucket.bucket.arn}/*",
+      "${aws_s3_bucket.main.arn}/*",
     ]
 
     principals {

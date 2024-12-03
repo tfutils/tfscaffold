@@ -1,4 +1,4 @@
-data "aws_iam_policy_document" "kms_key_s3" {
+data "aws_iam_policy_document" "kms_s3" {
   statement {
     sid    = "AllowLocalIAMAdministration"
     effect = "Allow"

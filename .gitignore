@@ -1,13 +1,19 @@
 ### Terraform ###
+
+# Transient backends
+components/**/backend_tfscaffold.tf
+
 # Compiled files
 **/*.tfstate
 **/*.tfplan
 **/*.tfstate.backup
 **/.terraform
+**/.terraform.lock.hcl
 **/.terraform/*
-
-# Terraform Output
-**/.terraform.output.json
+**/build/*
+**/work/*
+**/*tfstate.lock.info
+**/*.tfplan.json
 
 # Scaffold Plugin Cache
 plugin-cache/*
@@ -37,3 +43,20 @@ Icon
 Network Trash Folder
 Temporary Items
 .apdisk
+
+# Security scan reports
+*.sarif
+
+# Checkov module directory
+.external_modules
+
+# Node modules
+node_modules/
+
+*.swp
+.nyc_output
+
+# Python
+**/.venv
+**/__pycache__
+**/.pytest_cache
