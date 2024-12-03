@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver="1.9.1";
+readonly script_ver='1.10.0';
 
 ##
 # Standardised failure function
@@ -42,6 +42,7 @@ Usage: ${0} \\
   -p/--project       [project] \\
   -r/--region        [region] \\
   -d/--detailed-exitcode \\
+  -j/--disable-output-json \\
   -n/--no-color \\
   -t/--lock-table \\
   -w/--compact-warnings \\
@@ -106,6 +107,9 @@ no-color (optional):
 compact-warnings (optional):
  Append -compact-warnings to all terraform calls
 
+disable-output-json (optional):
+ Don't write outputs to the terraform.output.json file
+
 lockfile:
  Append -lockfile=MODE to calls to terraform init
 
@@ -127,21 +131,21 @@ fi
 ##
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
-         -o dhntvwa:b:c:e:g:i:l:p:r: \
-         -l "help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings" \
+         -o dhjntvwa:b:c:e:g:i:l:p:r: \
+         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
          -n "${0}" \
          -- \
-         "$@");
+         "${@}");
 
 #Bad arguments
 if [ $? -ne 0 ]; then
   usage;
-  error_and_die "command line argument parse failure";
+  error_and_die 'command line argument parse failure';
 fi;
 
 eval set -- "${ARGS}";
 
-declare bootstrap="false";
+declare bootstrap='false';
 declare component_arg;
 declare region_arg;
 declare environment_arg;
@@ -155,9 +159,10 @@ declare detailed_exitcode;
 declare lock_table;
 declare no_color;
 declare compact_warnings;
-declare out="";
-declare destroy="";
-declare refresh="";
+declare output_json='true';
+declare out='';
+declare destroy='';
+declare refresh='';
 
 while true; do
   case "${1}" in
@@ -234,15 +239,19 @@ while true; do
       ;;
     --bootstrap)
       shift;
-      bootstrap="true";
+      bootstrap='true';
       ;;
     -d|--detailed-exitcode)
       shift;
-      detailed_exitcode="true";
+      detailed_exitcode='true';
+      ;;
+    -j|--disable-output-json)
+      shift;
+      output_json='false';
       ;;
     -t|--lock-table)
       shift;
-      lock_table="true";
+      lock_table='true';
       ;;
     -n|--no-color)
       shift;
@@ -259,7 +268,7 @@ while true; do
   esac;
 done;
 
-declare extra_args="${@} ${no_color} ${compact_warnings}"; # All arguments supplied after "--"
+declare extra_args="${@} ${no_color}"; # All arguments supplied after "--"
 
 ##
 # Script Set-Up
@@ -285,32 +294,32 @@ echo;
 # Set Region from args or environment. Exit if unset.
 readonly region="${region_arg:-${AWS_DEFAULT_REGION}}";
 [ -n "${region}" ] \
-  || error_and_die "No AWS region specified. No -r/--region argument supplied and AWS_DEFAULT_REGION undefined";
+  || error_and_die 'No AWS region specified. No -r/--region argument supplied and AWS_DEFAULT_REGION undefined';
 
 [ -n "${project}" ] \
-  || error_and_die "Required argument -p/--project not specified";
+  || error_and_die 'Required argument -p/--project not specified';
 
 # Bootstrapping is special
-if [ "${bootstrap}" == "true" ]; then
+if [ "${bootstrap}" == 'true' ]; then
   [ -n "${component_arg}" ] \
-    && error_and_die "The --bootstrap parameter and the -c/--component parameter are mutually exclusive";
+    && error_and_die 'The --bootstrap parameter and the -c/--component parameter are mutually exclusive';
   [ -n "${build_id}" ] \
-    && error_and_die "The --bootstrap parameter and the -i/--build-id parameter are mutually exclusive. We do not currently support plan files for bootstrap";
+    && error_and_die 'The --bootstrap parameter and the -i/--build-id parameter are mutually exclusive. We do not currently support plan files for bootstrap';
   [ -n "${environment_arg}" ] && readonly environment="${environment_arg}";
 else
   # Validate component to work with
   [ -n "${component_arg}" ] \
-    || error_and_die "Required argument missing: -c/--component";
+    || error_and_die 'Required argument missing: -c/--component';
   readonly component="${component_arg}";
 
   # Validate environment to work with
   [ -n "${environment_arg}" ] \
-    || error_and_die "Required argument missing: -e/--environment";
+    || error_and_die 'Required argument missing: -e/--environment';
   readonly environment="${environment_arg}";
 fi;
 
 [ -n "${action}" ] \
-  || error_and_die "Required argument missing: -a/--action";
+  || error_and_die 'Required argument missing: -a/--action';
 
 # Validate AWS Credentials Available
 iam_iron_man="$(aws sts get-caller-identity --query 'Arn' --output text)";
@@ -338,7 +347,7 @@ else
 fi;
 
 declare component_path;
-if [ "${bootstrap}" == "true" ]; then
+if [ "${bootstrap}" == 'true' ]; then
   component_path="${base_path}/bootstrap";
 else
   component_path="${base_path}/components/${component}";
@@ -362,19 +371,19 @@ fi;
 
 case "${action}" in
   apply)
-    refresh="-refresh=true";
+    refresh='-refresh=true';
     ;;
   destroy)
     destroy='-destroy';
-    refresh="-refresh=true";
+    refresh='-refresh=true';
     ;;
   plan)
-    refresh="-refresh=true";
+    refresh='-refresh=true';
     ;;
   plan-destroy)
-    action="plan";
-    destroy="-destroy";
-    refresh="-refresh=true";
+    action='plan';
+    destroy='-destroy';
+    refresh='-refresh=true';
     ;;
   *)
     ;;
@@ -383,7 +392,7 @@ esac;
 # Tell terraform to moderate its output to be a little
 # more friendly to automation wrappers
 # Value is irrelavant, just needs to be non-null
-export TF_IN_AUTOMATION="true";
+export TF_IN_AUTOMATION='true';
 
 for rc_path in "${base_path}" "${base_path}/etc" "${component_path}"; do
   if [ -f "${rc_path}/.terraformrc" ]; then
@@ -394,7 +403,7 @@ done;
 
 # Configure the plugin-cache location so plugins are not
 # downloaded to individual components
-declare default_plugin_cache_dir="$(pwd)/plugin-cache";
+declare default_plugin_cache_dir="${base_path}/plugin-cache";
 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-${default_plugin_cache_dir}}"
 mkdir -p "${TF_PLUGIN_CACHE_DIR}" \
   || error_and_die "Failed to created the plugin-cache directory (${TF_PLUGIN_CACHE_DIR})";
@@ -405,7 +414,7 @@ mkdir -p "${TF_PLUGIN_CACHE_DIR}" \
 rm -rf ${component_path}/.terraform;
 
 # Run global pre.sh
-if [ -f "pre.sh" ]; then
+if [ -f 'pre.sh' ]; then
   source pre.sh "${region}" "${environment}" "${action}" \
     || error_and_die "Global pre script execution failed with exit code ${?}";
 fi;
@@ -427,9 +436,9 @@ fi;
 # if not we will fill it with variable file parameters
 declare tf_var_params;
 
-if [ "${bootstrap}" == "true" ]; then
+if [ "${bootstrap}" == 'true' ]; then
   if [ "${action}" == "destroy" ]; then
-    error_and_die "You cannot destroy a bootstrap bucket using tfscaffold, it's just too dangerous. If you're absolutely certain that you want to delete the bucket and all contents, including any possible state files environments and components within this project, then you will need to do it from the AWS Console. Note you cannot do this from the CLI because the bootstrap bucket is versioned, and even the --force CLI parameter will not empty the bucket of versions";
+    error_and_die 'You cannot destroy a bootstrap bucket using tfscaffold, it's just too dangerous. If you're absolutely certain that you want to delete the bucket and all contents, including any possible state files environments and components within this project, then you will need to do it from the AWS Console. Note you cannot do this from the CLI because the bootstrap bucket is versioned, and even the --force CLI parameter will not empty the bucket of versions';
   fi;
 
   # Bootstrap requires this parameter as explicit as it is constructed here
@@ -450,7 +459,7 @@ fi;
 # This script does not currently support encryption of state files.
 # Use this feature only if you're sure it's the right pattern for your use case.
 declare -a secrets=();
-readonly secrets_file_name="secret.tfvars.enc";
+readonly secrets_file_name='secret.tfvars.enc';
 readonly secrets_file_path="build/${secrets_file_name}";
 aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${secrets_file_name} >/dev/null 2>&1;
 if [ $? -eq 0 ]; then
@@ -483,7 +492,7 @@ fi;
 # and even in those cases you should probably pass additional -var parameters to this script
 # from your automation mechanism.
 # Use this feature only if you're sure it's the right pattern for your use case.
-readonly dynamic_file_name="dynamic.tfvars";
+readonly dynamic_file_name='dynamic.tfvars';
 readonly dynamic_file_path="build/${dynamic_file_name}";
 aws s3 ls s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/${dynamic_file_name} >/dev/null 2>&1;
 if [ $? -eq 0 ]; then
@@ -584,13 +593,13 @@ done;
 #
 # For now we're left with this garbage, and no more support for <0.9.0.
 if [ -f backend_tfscaffold.tf ]; then
-  echo -e "WARNING: backend_tfscaffold.tf exists and will be overwritten!" >&2;
+  echo -e 'WARNING: backend_tfscaffold.tf exists and will be overwritten!' >&2;
 fi;
 
 declare backend_prefix;
 declare backend_filename;
 
-if [ "${bootstrap}" == "true" ]; then
+if [ "${bootstrap}" == 'true' ]; then
   backend_prefix="${project}/${aws_account_id}/${region}/bootstrap";
   backend_filename="bootstrap.tfstate";
 else
@@ -600,7 +609,7 @@ fi;
 
 readonly backend_key="${backend_prefix}/${backend_filename}";
 declare backend_config
-if [ "${lock_table}" == "true" ]; then
+if [ "${lock_table}" == 'true' ]; then
   backend_config="terraform {
   backend \"s3\" {
     region         = \"${region}\"
@@ -634,19 +643,19 @@ fi;
 # the remote state.
 
 # In default operations we assume we are already bootstrapped
-declare bootstrapped="true";
+declare bootstrapped='true';
 
 # If we are in bootstrap mode, we need to know if we have already bootstrapped
 # or we are working with or modifying an existing bootstrap bucket
-if [ "${bootstrap}" == "true" ]; then
+if [ "${bootstrap}" == 'true' ]; then
   # For this exist check we could do many things, but we explicitly perform
   # an ls against the key we will be working with so as to not require
   # permissions to, for example, list all buckets, or the bucket root keyspace
   aws s3 ls s3://${bucket}/${backend_prefix}/${backend_filename} >/dev/null 2>&1;
-  [ $? -eq 0 ] || bootstrapped="false";
+  [ $? -eq 0 ] || bootstrapped='false';
 fi;
 
-if [ "${bootstrapped}" == "true" ]; then
+if [ "${bootstrapped}" == 'true' ]; then
   echo -e "${backend_config}" > backend_tfscaffold.tf \
     || error_and_die "Failed to write backend config to $(pwd)/backend_tfscaffold.tf";
 
@@ -658,9 +667,9 @@ if [ "${bootstrapped}" == "true" ]; then
 
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
-  [ "${lock_table}" == "true" ] && echo "Using DynamoDB Table for state locking: ${bucket}";
+  [ "${lock_table}" == 'true' ] && echo "Using DynamoDB Table for state locking: ${bucket}";
   terraform init ${no_color} ${compact_warnings} ${lockfile_or_upgrade} \
-    || error_and_die "Terraform init failed";
+    || error_and_die 'Terraform init failed';
 else
   # We are bootstrapping. Download the providers, skip the backend config.
   terraform init \
@@ -668,7 +677,7 @@ else
     ${no_color} \
     ${compact_warnings} \
     ${lockfile} \
-    || error_and_die "Terraform init failed";
+    || error_and_die 'Terraform init failed';
 fi;
 
 case "${action}" in
@@ -682,8 +691,8 @@ case "${action}" in
       out="-out=build/${plan_file_name}";
     fi;
 
-    if [ "${detailed_exitcode}" == "true" ]; then
-      detailed="-detailed-exitcode";
+    if [ "${detailed_exitcode}" == 'true' ]; then
+      detailed='-detailed-exitcode';
     fi;
 
     terraform "${action}" \
@@ -702,7 +711,7 @@ case "${action}" in
     # so exit
     # (detailed exit codes are 0 and 2)
     if [ "${status}" -eq 1 ]; then
-      error_and_die "Terraform plan failed";
+      error_and_die 'Terraform plan failed';
     fi;
 
     if [ -n "${build_id}" ]; then
@@ -715,24 +724,31 @@ case "${action}" in
   'graph')
     mkdir -p build || error_and_die "Failed to create output directory '$(pwd)/build'";
     terraform graph ${extra_args} -draw-cycles | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}.png \
-      || error_and_die "Terraform simple graph generation failed";
+      || error_and_die 'Terraform simple graph generation failed';
     terraform graph ${extra_args} -draw-cycles -verbose | dot -Tpng > build/${project}-${aws_account_id}-${region}-${environment}-verbose.png \
-      || error_and_die "Terraform verbose graph generation failed";
+      || error_and_die 'Terraform verbose graph generation failed';
     exit 0;
     ;;
   'apply'|'destroy'|'refresh')
+    # User can specify -w/--compact-warnings for all their commands,
+    # and we'll safely ignore it for commands that don't support it
+    extra_args+=" ${compact_warnings}";
+
+    # We're going to write a new one of these, and we don't want the user
+    # thinking the stale file is up to date if we don't update it successfully
+    [ "${output_json}" == 'true' ] && [ -f 'terraform.output.json' ] && echo 'Deleting old terraform.output.json' && rm -f terraform.output.json;
 
     # Support for terraform <0.10 is now deprecated
-    if [ "${action}" == "apply" ]; then
-      echo "Compatibility: Adding to terraform arguments: -auto-approve=true";
-      extra_args+=" -auto-approve=true";
+    if [ "${action}" == 'apply' ]; then
+      echo 'Compatibility: Adding to terraform arguments: -auto-approve=true';
+      extra_args+=' -auto-approve=true';
     else # action is `destroy`
       # Check terraform version - if pre-0.15, need to add `-force`; 0.15 and above instead use `-auto-approve`
-      if [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f1) == "v0" ] && [ $(terraform version | head -n1 | cut -d" " -f2 | cut -d"." -f2) -lt 15 ]; then
-        echo "Compatibility: Adding to terraform arguments: -force";
+      if [ $(terraform version | head -n1 | cut -d' ' -f2 | cut -d'.' -f1) == 'v0' ] && [ $(terraform version | head -n1 | cut -d' ' -f2 | cut -d'.' -f2) -lt 15 ]; then
+        echo 'Compatibility: Adding to terraform arguments: -force';
         force='-force';
       else
-        extra_args+=" -auto-approve";
+        extra_args+=' -auto-approve';
       fi;
     fi;
 
@@ -764,7 +780,7 @@ case "${action}" in
         ${force};
       exit_code=$?;
 
-      if [ "${bootstrapped}" == "false" ]; then
+      if [ "${bootstrapped}" == 'false' ]; then
         # If we are here, and we are in bootstrap mode, and not already bootstrapped,
         # Then we have just bootstrapped for the first time! Congratulations.
         # Now we need to copy our state file into the bootstrap bucket
@@ -776,7 +792,7 @@ case "${action}" in
 
         # Push Terraform Remote State to S3
         # TODO: Add -upgrade to init when we drop support for <0.10
-        echo "yes" | terraform init ${lockfile} || error_and_die "Terraform init failed";
+        echo 'yes' | terraform init ${lockfile} || error_and_die 'Terraform init failed';
 
         # Hard cleanup
         rm -f backend_tfscaffold.tf;
@@ -784,7 +800,7 @@ case "${action}" in
         rm -rf .terraform;
 
         # This doesn't mean anything here, we're just celebrating!
-        bootstrapped="true";
+        bootstrapped='true';
       fi;
 
     fi;
@@ -793,7 +809,12 @@ case "${action}" in
       error_and_die "Terraform ${action} failed with exit code ${exit_code}";
     fi;
 
-    if [ -f "post.sh" ]; then
+    if [ "${output_json}" == 'true' ]; then
+      echo 'Writing terraform.output.json';
+      terraform output -json -no-color > terraform.output.json;
+    fi;
+
+    if [ -f 'post.sh' ]; then
       source post.sh "${region}" "${environment}" "${action}" \
         || error_and_die "Component post script execution failed with exit code ${?}";
     fi;
@@ -809,16 +830,16 @@ case "${action}" in
     bash -l || exit "${?}";
     ;;
   *)
-    echo -e "Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:";
+    echo -e 'Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:';
     echo -e "\tterraform ${action} ${extra_args}";
     terraform "${action}" ${extra_args} \
       || error_and_die "Terraform ${action} failed.";
     ;;
 esac;
 
-popd
+popd;
 
-if [ -f "post.sh" ]; then
+if [ -f 'post.sh' ]; then
   source post.sh "${region}" "${environment}" "${action}" \
     || error_and_die "Global post script execution failed with exit code ${?}";
 fi;

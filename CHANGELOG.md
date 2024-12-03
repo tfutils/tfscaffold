@@ -1,3 +1,21 @@
+## 1.10.0 (02/12/2024)
+
+FEATURES:
+
+ * Apply/Refresh/Destroy actions now output a terraform.output.json file containing
+   the contents of terraform output -json -no-color. On by default, can be disabled.
+ * Ignore -w/--compact-warnings for commands that don't support it so the user
+   can specify it all the time without worrying which commands support it.
+
+BUG FIXES:
+
+ * Fix plugin-cache base directory from `$(pwd)` to `${base_path}` so it is correctly
+   located if terraform.sh is invoked from somewhere other than the project root.
+
+CHORES:
+
+ * Fix inappropriate double-quoting of non-interpolated strings.
+
 ## 1.9.1 (06/09/2024)
 
 BUG FIXES:

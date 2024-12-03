@@ -105,19 +105,20 @@ The terraformscaffold script is invoked as bin/terraform.sh. Once a state bucket
 
 ```bash
 bin/terraform.sh \
-  -a/--action            `action` \
-  -b/--bucket-prefix     `bucket_prefix` \
-  -c/--component         `component_name` \
-  -e/--environment       `environment` \
-  -g/--group             `group` (optional) \
-  -i/--build-id          `build_id` (optional) \
-  -l/--lockfile          `mode` (optional) \
-  -p/--project           `project` \
-  -r/--region            `region` \
-  -d/--detailed-exitcode (optional) \
-  -t/--lock-table        (optional) \
-  -n/--no-color          (optional) \
-  -w/--compact-warnings  (optional) \
+  -a/--action              `action` \
+  -b/--bucket-prefix       `bucket_prefix` \
+  -c/--component           `component_name` \
+  -e/--environment         `environment` \
+  -g/--group               `group` (optional) \
+  -i/--build-id            `build_id` (optional) \
+  -l/--lockfile            `mode` (optional) \
+  -p/--project             `project` \
+  -r/--region              `region` \
+  -d/--detailed-exitcode   (optional) \
+  -j/--disable-output-json (optional) \
+  -t/--lock-table          (optional) \
+  -n/--no-color            (optional) \
+  -w/--compact-warnings    (optional) \
   -- \
   <additional arguments to forward to the terraform binary call>
 ```
@@ -140,6 +141,7 @@ Where:
 * `project`: The name of the project being deployed, as per the default bucket-prefix and state file keyspace
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.
 * `detailed-exitcode` (optional): Passes detailed exit code flag to terraform.
+* `disable-output-json` (optional): Disables writing a terraform.output.json file when component outputs are updated
 * `lock-table` (optional): Tells tfscaffold to use a DynamoDB Table with the same name as the S3 Bucket for state file locking
 * `no-color` (optional): Passes no-color flag to terraform.
 * `compact-warnings` (optional): Passes compact-warnings flag to terraform.
