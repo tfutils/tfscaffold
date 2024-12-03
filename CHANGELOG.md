@@ -1,3 +1,9 @@
+## 1.10.1 (02/12/2024)
+
+BUG FIXES:
+
+ * Add `**/terraform.output.json` to the default .gitignore
+
 ## 1.10.0 (02/12/2024)
 
 FEATURES:
