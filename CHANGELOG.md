@@ -1,3 +1,9 @@
+## 1.10.2 (02/12/2024)
+
+BUG FIXES:
+
+ * Correct `terraform.output.json` to `.terraform.output.json`
+
 ## 1.10.1 (02/12/2024)
 
 BUG FIXES:

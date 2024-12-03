@@ -7,7 +7,7 @@
 **/.terraform/*
 
 # Terraform Output
-**/terraform.output.json
+**/.terraform.output.json
 
 # Scaffold Plugin Cache
 plugin-cache/*

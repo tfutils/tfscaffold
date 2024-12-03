@@ -8,7 +8,7 @@
 ##
 # Set Script Version
 ##
-readonly script_ver='1.10.0';
+readonly script_ver='1.10.2';
 
 ##
 # Standardised failure function
@@ -108,7 +108,7 @@ compact-warnings (optional):
  Append -compact-warnings to all terraform calls
 
 disable-output-json (optional):
- Don't write outputs to the terraform.output.json file
+ Don't write outputs to the .terraform.output.json file
 
 lockfile:
  Append -lockfile=MODE to calls to terraform init
@@ -736,7 +736,7 @@ case "${action}" in
 
     # We're going to write a new one of these, and we don't want the user
     # thinking the stale file is up to date if we don't update it successfully
-    [ "${output_json}" == 'true' ] && [ -f 'terraform.output.json' ] && echo 'Deleting old terraform.output.json' && rm -f terraform.output.json;
+    [ "${output_json}" == 'true' ] && [ -f '.terraform.output.json' ] && echo "Deleting old outputs file: $(pwd)/.terraform.output.json" && rm -f .terraform.output.json;
 
     # Support for terraform <0.10 is now deprecated
     if [ "${action}" == 'apply' ]; then
@@ -810,8 +810,8 @@ case "${action}" in
     fi;
 
     if [ "${output_json}" == 'true' ]; then
-      echo 'Writing terraform.output.json';
-      terraform output -json -no-color > terraform.output.json;
+      echo "Writing terraform output to $(pwd)/.terraform.output.json";
+      terraform output -json -no-color > .terraform.output.json;
     fi;
 
     if [ -f 'post.sh' ]; then
