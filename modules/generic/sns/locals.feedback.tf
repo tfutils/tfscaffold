@@ -1,4 +1,17 @@
 locals {
+  feedback_logging_enabled = try(coalesce(
+    local.feedback_config["application"]["failure_role_arn"],
+    local.feedback_config["application"]["success_role_arn"],
+    local.feedback_config["firehose"]["failure_role_arn"],
+    local.feedback_config["firehose"]["success_role_arn"],
+    local.feedback_config["http"]["failure_role_arn"],
+    local.feedback_config["http"]["success_role_arn"],
+    local.feedback_config["lambda"]["failure_role_arn"],
+    local.feedback_config["lambda"]["success_role_arn"],
+    local.feedback_config["sqs"]["failure_role_arn"],
+    local.feedback_config["sqs"]["success_role_arn"],
+  ), null) == null ? false : true
+
   feedback_config = {
     application = {
       failure_role_arn = try(coalesce(var.application_failure_feedback_role_arn, var.default_failure_feedback_role_arn, var.default_feedback_role_arn), null)

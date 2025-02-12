@@ -1,0 +1,21 @@
+resource "aws_transfer_server" "main" {
+  identity_provider_type = "SERVICE_MANAGED"
+  endpoint_type          = var.sftp_endpoint_type
+  force_destroy          = true
+  logging_role           = aws_iam_role.sftp_logs.arn
+
+  dynamic "endpoint_details" {
+    for_each = var.sftp_endpoint_type != "PUBLIC" ? [1] : []
+
+    content {
+      vpc_endpoint_id        = var.sftp_endpoint_type == "VPC_ENDPOINT" ? var.vpc_id : null
+      subnet_ids             = var.subnet_ids
+      vpc_id                 = var.vpc_id
+      address_allocation_ids = var.sftp_endpoint_type == "VPC" ? aws_eip.main[*].id : null
+      # Not supported yet
+      # security_group_ids     = [ aws_security_group.main.id ]
+    }
+  }      
+
+  tags = local.default_tags
+}

@@ -3,7 +3,7 @@
 
 | Name | Version |
 |------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.0 |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 0.13 |
 
 ## Providers
 
@@ -31,7 +31,7 @@ No modules.
 | <a name="input_application_failure_feedback_role_arn"></a> [application\_failure\_feedback\_role\_arn](#input\_application\_failure\_feedback\_role\_arn) | Role ARN for application endpoint delivery success | `string` | `null` | no |
 | <a name="input_application_success_feedback_role_arn"></a> [application\_success\_feedback\_role\_arn](#input\_application\_success\_feedback\_role\_arn) | Role ARN for application endpoint delivery success | `string` | `null` | no |
 | <a name="input_application_success_feedback_sample_rate"></a> [application\_success\_feedback\_sample\_rate](#input\_application\_success\_feedback\_sample\_rate) | Role ARN for application endpoint delivery success | `string` | `null` | no |
-| <a name="input_aws"></a> [aws](#input\_aws) | n/a | <pre>object({<br>    account_id   = string<br>    default_tags = optional(map(string), {})<br>    partition    = optional(string, "aws")<br>    region       = string<br>    url_suffix   = optional(string, "amazonaws.com")<br>  })</pre> | n/a | yes |
+| <a name="input_aws"></a> [aws](#input\_aws) | n/a | <pre>object({<br/>    account_id   = string<br/>    default_tags = optional(map(string), {})<br/>    partition    = optional(string, "aws")<br/>    region       = string<br/>    url_suffix   = optional(string, "amazonaws.com")<br/>  })</pre> | n/a | yes |
 | <a name="input_content_based_deduplication"></a> [content\_based\_deduplication](#input\_content\_based\_deduplication) | Enables content-based deduplication for FIFO topics. | `bool` | `null` | no |
 | <a name="input_default_failure_feedback_role_arn"></a> [default\_failure\_feedback\_role\_arn](#input\_default\_failure\_feedback\_role\_arn) | Default Success/Failure Feedback Role ARN for all endpoints | `string` | `null` | no |
 | <a name="input_default_feedback_role_arn"></a> [default\_feedback\_role\_arn](#input\_default\_feedback\_role\_arn) | Default Success/Failure Feedback Role ARN for all endpoints | `string` | `null` | no |
@@ -60,7 +60,7 @@ No modules.
 | <a name="input_sqs_success_feedback_sample_rate"></a> [sqs\_success\_feedback\_sample\_rate](#input\_sqs\_success\_feedback\_sample\_rate) | Role ARN for sqs endpoint delivery success | `string` | `null` | no |
 | <a name="input_topic_name"></a> [topic\_name](#input\_topic\_name) | If set, the full name of the SNS Topic, otherwise it will be set to the CSI | `string` | `null` | no |
 | <a name="input_tracing_config"></a> [tracing\_config](#input\_tracing\_config) | Tracing mode of an Amazon SNS topic. Valid values: 'PassThrough', 'Active'. | `string` | `null` | no |
-| <a name="input_unique_ids"></a> [unique\_ids](#input\_unique\_ids) | n/a | <pre>object({<br>    local   = string<br>    account = optional(string, null) # Not used in this module<br>    global  = optional(string, null) # Not used in this module<br>  })</pre> | n/a | yes |
+| <a name="input_unique_ids"></a> [unique\_ids](#input\_unique\_ids) | n/a | <pre>object({<br/>    # All marked as optional for consistency of code.<br/>    # Whether each is optional depends on the module implementation.<br/>    local   = optional(string, null)<br/>    account = optional(string, null)<br/>    global  = optional(string, null)<br/>  })</pre> | n/a | yes |
 
 ## Outputs
 

@@ -11,7 +11,7 @@ data "aws_iam_policy_document" "sns" {
       effect = "Allow"
 
       actions = [
-        "SNS:Publish",
+        "sns:Publish",
       ]
 
       principals {

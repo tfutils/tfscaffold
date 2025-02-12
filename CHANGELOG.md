@@ -1,3 +1,7 @@
+## 2.0.1 (12/02/2025)
+
+ * Updated included modules to follow new standard and include other generics
+
 ## 2.0.0 (02/12/2024)
 
 BREAKING CHANGES:

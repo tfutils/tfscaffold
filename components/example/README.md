@@ -16,6 +16,8 @@
 
 | Name | Source | Version |
 |------|--------|---------|
+| <a name="module_kms_s3"></a> [kms\_s3](#module\_kms\_s3) | ../../modules/generic/kms | n/a |
+| <a name="module_s3bucket_bestpractice"></a> [s3bucket\_bestpractice](#module\_s3bucket\_bestpractice) | ../../modules/generic/s3bucket | n/a |
 | <a name="module_sns_something"></a> [sns\_something](#module\_sns\_something) | ../../modules/generic/sns | n/a |
 
 ## Resources

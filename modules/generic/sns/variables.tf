@@ -20,9 +20,11 @@ variable "module_parents" {
 
 variable "unique_ids" {
   type = object({
-    local   = string
-    account = optional(string, null) # Not used in this module
-    global  = optional(string, null) # Not used in this module
+    # All marked as optional for consistency of code.
+    # Whether each is optional depends on the module implementation.
+    local   = optional(string, null)
+    account = optional(string, null)
+    global  = optional(string, null)
   })
 }
 
