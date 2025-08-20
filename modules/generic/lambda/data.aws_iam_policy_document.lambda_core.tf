@@ -28,6 +28,25 @@ data "aws_iam_policy_document" "lambda_core" {
   }
 
   dynamic "statement" {
+    for_each = var.edge ? [1] : []
+
+    content {
+      sid    = "AllowEdgeLambdaLogging"
+      effect = "Allow"
+
+      actions = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ]
+
+      resources = [
+        "arn:aws:logs:*:${local.aws_account_id}:log-group:/aws/lambda/us-east-1.${local.function_name}:*",
+      ]
+    }
+  }
+
+  dynamic "statement" {
     for_each = var.insights["enabled"] ? [1] : []
 
     content {
