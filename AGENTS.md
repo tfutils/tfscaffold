@@ -16,7 +16,7 @@ execution orchestration.
 - **Default branch:** `master`
 - **Current release:** v2.3.3 (April 2026)
 - **Maintainer:** Mike Peachey / Jaz (@Zordrak)
-- **Minimal dependencies:** bash, AWS CLI, terraform, curl, GNU getopt
+- **Minimal dependencies:** bash, AWS CLI, terraform, GNU getopt
 - **License:** MIT
 
 ## Repository Structure
