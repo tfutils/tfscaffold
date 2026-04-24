@@ -1,0 +1,21 @@
+# CODEOWNERS — tfscaffold
+#
+# Auto-assigns reviewers on PRs. Security-sensitive paths require lead review.
+# Syntax: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default — Zordrak reviews everything by default
+*                                          @Zordrak
+
+# Core scaffold script — highest blast radius
+bin/terraform.sh                           @Zordrak
+
+# Bootstrap — state bucket management, high risk
+bootstrap/                                 @Zordrak
+
+# CI/CD & automation
+.github/workflows/                         @Zordrak
+.github/agents/                            @Zordrak
+.github/instructions/                      @Zordrak
+
+# Security policy
+SECURITY.md                                @Zordrak
