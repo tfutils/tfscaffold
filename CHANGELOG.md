@@ -1,3 +1,11 @@
+## 2.3.2 (24/04/2026)
+
+FEATURES:
+
+ * terraform.sh: added multi-group support. The `-g`/`--group` flag (also
+   `--groups`) now accepts comma-delimited values, e.g. `-g dev,live`, loading
+   each group's tfvars file in order. Closes #41.
+
 ## 2.3.1 (24/04/2026)
 
 FEATURES:

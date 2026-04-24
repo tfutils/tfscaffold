@@ -118,7 +118,7 @@ bin/terraform.sh \
   -b/--bucket-prefix       `bucket_prefix` \
   -c/--component           `component_name` \
   -e/--environment         `environment` \
-  -g/--group               `group` (optional) \
+  -g/--group/--groups     `group` (optional, comma-delimited for multiple) \
   -i/--build-id            `build_id` (optional) \
   -l/--lockfile            `mode` (optional) \
   -p/--project             `project` \
@@ -145,7 +145,7 @@ Where:
   * It is usual to provide, for example, the Jenkins _$BUILD_ID_ parameter to Plan jobs, and then manually reference that particular Job ID when running a corresponding apply job.
 * `component_name`: The name of the terraform component in the components directory to run the `action` against.
 * `environment`: The name of the environment the component is to be actioned against, therefore implying the variables file(s) to be included
-* `group` (optional): The name of the group to which the environment belongs, permitting the use of a group tfvars file as a "meta-environment" shared by more than one environment
+* `group` (optional): The name of the group(s) to which the environment belongs, permitting the use of group tfvars files as "meta-environments" shared by more than one environment. Supports comma-delimited values for multiple groups, e.g. `-g dev,live`
 * `lockfile` (optional): Passes the given lockfile mode to terraform.
 * `project`: The name of the project being deployed, as per the default bucket-prefix and state file keyspace
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.

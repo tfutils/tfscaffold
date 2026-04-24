@@ -38,7 +38,7 @@ Usage: ${0} \\
   -b/--bucket-prefix [bucket_prefix] \\
   -c/--component     [component_name] \\
   -e/--environment   [environment] \\
-  -g/--group         [group]
+  -g/--group         [group] (optional, comma-delimited for multiple) \
   -i/--build-id      [build_id] (optional) \\
   -l/--lockfile      [mode] \\
   -p/--project       [project] \\
@@ -80,10 +80,12 @@ environment:
  - prod
  - management
 
-group:
+group (optional):
+ Supports comma-delimited values for multiple groups, e.g. "dev,live"
  - dev
  - live
  - mytestgroup
+ - dev,live
 
 project:
  - The name of the project being deployed
@@ -134,7 +136,7 @@ fi
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
          -o dhjntvwa:b:c:e:g:i:l:p:r: \
-         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
+         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,groups:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
          -n "${0}" \
          -- \
          "${@}");
@@ -201,7 +203,7 @@ while true; do
         shift;
       fi;
       ;;
-    -g|--group)
+    -g|--group|--groups)
       shift;
       if [ -n "${1}" ]; then
         group="${1}";
@@ -543,10 +545,10 @@ readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
 readonly region_vars_file_name="${region}.tfvars";
 readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
 
-# Check for presence of a group variables file if specified, and use it if readable
+# Parse comma-delimited group into an array
+declare -a groups=();
 if [ -n "${group}" ]; then
-  readonly group_vars_file_name="group_${group}.tfvars";
-  readonly group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
+  IFS=',' read -ra groups <<< "${group}";
 fi;
 
 # Collect the paths of the variables files to use
@@ -559,18 +561,20 @@ declare -a tf_var_file_paths;
 [ -f "${global_vars_file_path}" ] && tf_var_file_paths+=("${global_vars_file_path}");
 [ -f "${region_vars_file_path}" ] && tf_var_file_paths+=("${region_vars_file_path}");
 
-# If a group has been specified, load the vars for the group. If we are to assume
+# If group(s) have been specified, load the vars for each group. If we are to assume
 # terraform correctly handles override-ordering (which to be fair we don't hence
 # the warning about duplicate variables below) we add this to the list after
 # global and region-global variables, but before the environment variables
-# so that the environment can explicitly override variables defined in the group.
-if [ -n "${group}" ]; then
+# so that the environment can explicitly override variables defined in the group(s).
+for group_name in "${groups[@]}"; do
+  declare group_vars_file_name="group_${group_name}.tfvars";
+  declare group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
   if [ -f "${group_vars_file_path}" ]; then
     tf_var_file_paths+=("${group_vars_file_path}");
   else
-    echo -e "[WARNING] Group \"${group}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
+    echo -e "[WARNING] Group \"${group_name}\" has been specified, but no group variables file is available at ${group_vars_file_path}";
   fi;
-fi;
+done;
 
 # Environment is normally expected, but in bootstrapping it may not be provided
 if [ -n "${environment}" ]; then
