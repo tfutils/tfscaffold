@@ -1,3 +1,43 @@
+## 2.3.1 (24/04/2026)
+
+FEATURES:
+
+ * Lambda module: replaced external data source + Node.js script with native
+   `aws_lambda_layer_version` for CloudWatch Lambda Insights layer resolution.
+ * Lambda module: added ADOT OpenTelemetry layer support via `adot` variable.
+ * Lambda module: added SSM Parameters & Secrets extension layer support via
+   `ssm_extension` variable.
+ * Lambda module: added memory usage CloudWatch alarm via `function_memory`
+   variable.
+ * Lambda module: error alarm now supports percentage-based thresholds in
+   addition to count-based via `threshold_type` option.
+ * Lambda module: added destroy-time placeholder handling for S3 function source.
+ * Cognito module: SMS IAM role and configuration now gated on `sms_enabled`
+   variable.
+ * Cognito module: added `software_token_mfa_configuration` support.
+ * Cognito module: extracted `ui_customisation` as standalone variable.
+ * Cognito module: added `generate_secret` variable for cognito user pool client.
+ * Cognito module: added `callback_urls` variable with `app_fqdn` fallback.
+ * Cognito module: added `user_pool_domain_ready` output.
+ * terraform.sh: added edge lambda logging support.
+
+BUG FIXES:
+
+ * Lambda module: added length guards on S3 bucket/key/version references to
+   prevent errors when data source is empty during destroy.
+ * Cognito module: fixed recovery mechanism priority ordering (email first).
+ * Cognito module: fixed trailing whitespace in multiple files.
+
+CHORES:
+
+ * S3bucket module: removed deprecated `expected_bucket_owner` from accelerate,
+   CORS, and server-side encryption configurations.
+ * S3bucket module: fixed `lifecycle_configuration_id` output to return
+   `rule[*].id`.
+ * S3bucket module: uncommented `ownership_controls` output.
+ * Lambda module: removed `external` provider dependency.
+ * Regenerated terraform-docs READMEs for lambda, s3bucket, and cognito.
+
 ## 2.3.0 (24/04/2026)
 
 BREAKING CHANGES:
