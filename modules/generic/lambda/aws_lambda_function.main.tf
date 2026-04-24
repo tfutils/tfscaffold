@@ -11,6 +11,8 @@ resource "aws_lambda_function" "main" {
   runtime       = var.function_source_type == "image" ? null : var.runtime
   timeout       = var.timeout
 
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+
   # Destroy will _never_ work on a replicated edge function first time, and there's no reasonable
   # process to do the destroy, and then let it time out, and then wait 24h, and then destroy again.
   # So we just skip the destroy for edge functions, but it does mean a process needed to occasionally

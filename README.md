@@ -54,15 +54,24 @@ Credentials can be provided in any of the standard mechanisms provided by the Bo
 
 If you want to make use of instance profiles, MFA tokens, AWS STS, Cross Account Roles or other fantastic IAM trickery, the recommended practice is to use a static access key or instance profile to call AWS STS using the AWS CLI tools, and then assign the temporary credentials that are generated to the AWS credential environment variables so that terraform can make use of them. This is done externally to Scaffold and would normally be integrated into a Jenkins job as a step to perform to prepare the environment before calling Scaffold.
 
-### pre_apply.sh & post_apply.sh
+### pre.sh & post.sh
 
-Although as yet somewhat unrefined, Scaffold provides the capacity to incorporate additional scripted actions to take prior to and after running terraform on a given component. If there is a file called "pre_apply.sh" present in the top level of the component you are working with, then it will be executed as a bash script prior to any terraform action. If a file called post_apply.sh is present it will be executed immediately following any terraform action. This capability clearly could do with some improvement to support complex deployments with script dependencies, but as yet I have none to play with.
+Scaffold supports hook scripts at two scopes — global and component — that run before and after terraform actions. Each hook is sourced (not executed) so it shares the calling environment, and receives three positional arguments: `region`, `environment`, and `action`.
+
+| Hook | Location | When it runs |
+|------|----------|-------------|
+| Global pre | `pre.sh` in the project root | Before entering the component directory |
+| Component pre | `pre.sh` in the component directory | After entering the component directory, before terraform runs |
+| Component post | `post.sh` in the component directory | After the terraform action completes |
+| Global post | `post.sh` in the project root | After leaving the component directory |
+
+Any hook that exits non-zero will abort the scaffold run.
 
 ### Encrypted Variables / Secrets
 
 This is an experimental feature that is not necessarily an appropriate solution for secrets management in production systems due to the way state files are stored with all terraform variables included. In general a resource that requires secret information should look up that information itself once it has been created using role based credentials. If however you are simply looking for a solution to move secrets out of your Git repository and into S3 which can be locked down, then this might be useful.
 
-On invocation, Scaffold checks for a file at _s3://${bucket}/${project}/secrets/secret_${region}_${environment}.tfvars.enc_. If it finds one, it attempts to use KMS to decrypt the contents into an array and then process each line as a key=value set of variables. Each one is then provided to terraform as an input variable in the form: -var 'key=value'. This ensures that the secret is never stored unencrypted on disk even temporarily during terraform apply. However.. the completely unencrypted format of the terraform tfplan and tfstate files means these secrets will still make it to disk and be stored in the clear, hence the above caveats. This is not a complete secrets management solution, but it is a useful quick fix to get your secrets out of Git while you work on a better long term plan.
+On invocation, Scaffold checks for a file at _s3://${bucket}/${project}/${aws_account_id}/${region}/${environment}/secret.tfvars.enc_. If it finds one, it attempts to use KMS to decrypt the contents into an array and then process each line as a key=value set of variables. Each one is then provided to terraform as an input variable in the form: -var 'key=value'. This ensures that the secret is never stored unencrypted on disk even temporarily during terraform apply. However.. the completely unencrypted format of the terraform tfplan and tfstate files means these secrets will still make it to disk and be stored in the clear, hence the above caveats. This is not a complete secrets management solution, but it is a useful quick fix to get your secrets out of Git while you work on a better long term plan.
 
 ### Provider Plugins
 
@@ -70,7 +79,7 @@ Since 0.10 terraform has split its providers out into plugins which are download
 
 ## Usage
 ### Bootstrapping
-Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket and then configure the bucket as a remote state location for itself. nd upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
+Before using Scaffold, a bootstrapping stage is required. Scaffold is responsible for creating and maintaining the S3 buckets it uses to store component state files and even keeps the state file that defines the scaffold bucket in the same bucket. This is done with a special bootstrap mode within the script, invoked with the '--bootstrap' parameter. When used with the "apply" action, this will cause the script to create a bootstrap bucket and then configure the bucket as a remote state location for itself. And upload the tfstate used for managing the bucket to the bucket. Once created, the bucket can then be used for any terraform apply for the specific combination of project, region and AWS account.
 
 It is not recommended to modify the bootstrap code after creation as it risks the integrity of the state files stored in the bucket that manage other deployments; however this can be mitigated by configuring synchronisation with a master backup bucket external to Scaffold management.
 
@@ -101,7 +110,7 @@ Where:
 
 ### Running
 
-The terraformscaffold script is invoked as bin/terraform.sh. Once a state bucket has been bootstrapped, bin/terraform.sh can be run to apply terraform code. Its usage as of 25/01/2017 is:
+The terraformscaffold script is invoked as bin/terraform.sh. Once a state bucket has been bootstrapped, bin/terraform.sh can be run to apply terraform code. Its usage is:
 
 ```bash
 bin/terraform.sh \
@@ -124,7 +133,7 @@ bin/terraform.sh \
 ```
 
 Where:
-* `action`: Terraform action (or pseudo-action) to take, e.g. plan, apply, plan-destroy (runs plan with the -destroy flag), destroy, show
+* `action`: Terraform action (or pseudo-action) to take, e.g. plan, apply, plan-destroy (runs plan with the -destroy flag), destroy, output, show, graph
 * `bucket_prefix` (optional): Defaults to: `${project_name}-tfscaffold` - Only for use where a different bucket prefix has been bootstrapped
 * `build_id` (optional): Used in conjunction with the plan and apply actions, `build_id` causes the creation and consumption of terraform plan files (.tfplan)
   * When `build_id` is omitted:
@@ -146,3 +155,37 @@ Where:
 * `no-color` (optional): Passes no-color flag to terraform.
 * `compact-warnings` (optional): Passes compact-warnings flag to terraform.
 * `additional arguments`: Any arguments provided after "--" will be passed directly to terraform as its own arguments, e.g. allowing the provision of a 'target=value' parameter.
+
+### Automatic TF_VAR Exports
+
+Scaffold automatically exports the following as terraform variables, making them available without explicit variable passthrough:
+
+* `TF_VAR_aws_account_id` - The AWS account ID resolved by the running credentials
+* `TF_VAR_environment` - The environment name passed to scaffold
+
+### Remote Dynamic Variables
+
+Scaffold downloads all `*.tfvars` and `*.tfvars.json` files from the S3 state bucket under the path `${project}/${aws_account_id}/${region}/${environment}/`. These are passed to terraform as additional variable files, allowing variables to be managed outside of the repository. This is useful for values that change frequently or are generated by external processes.
+
+### Output Action
+
+The `output` action retrieves terraform outputs for a component without running plan or apply:
+
+```bash
+bin/terraform.sh \
+  -a output \
+  -p project \
+  -c component \
+  -e environment \
+  -r region
+```
+
+When `-j` is not set (the default), outputs are also written to `.terraform.output.json` in the component directory.
+
+### AWS Profile Support
+
+When the `AWS_PROFILE` environment variable is set, scaffold automatically includes it in the S3 backend configuration. This enables use of named profiles for state file access without additional configuration.
+
+### State Encryption
+
+S3 backend state is always configured with `encrypt = true`, ensuring state files are encrypted at rest in S3 using server-side encryption.

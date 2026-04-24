@@ -14,5 +14,21 @@ data "aws_iam_policy_document" "assumerole" {
         identifiers = principals.value.identifiers
       }
     }
+
+    dynamic "condition" {
+      for_each = length([
+        for p in coalesce(var.trusted_principals, []) : p.external_id
+        if p.external_id != null
+      ]) > 0 ? [1] : []
+
+      content {
+        test     = "StringEquals"
+        variable = "sts:ExternalId"
+        values = [
+          for p in coalesce(var.trusted_principals, []) : p.external_id
+          if p.external_id != null
+        ]
+      }
+    }
   }
 }

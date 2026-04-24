@@ -5,8 +5,8 @@ locals {
   ])))
 
   default_tags = {
-    "tfscaffold:Environment" = var.environment
-    "tfscaffold:Project"     = var.project
-    "tfscaffold:Component"   = var.component
+    "tfscaffold:environment" = var.environment
+    "tfscaffold:project"     = var.project
+    "tfscaffold:component"   = var.component
   }
 }

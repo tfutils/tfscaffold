@@ -106,8 +106,8 @@ variable "access_token_validity" {
   description = "Access Token Validity"
 
   default = {
-    validity = 480
-    units    = "minutes"
+    value = 480
+    units = "minutes"
   }
 }
 

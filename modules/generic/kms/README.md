@@ -31,7 +31,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_alias"></a> [alias](#input\_alias) | Alias name for the KMS key (to be prefixed with alias/). Set to 'csi' to use the module's CSI alias naming convention | `string` | `"null"` | no |
+| <a name="input_alias"></a> [alias](#input\_alias) | Alias name for the KMS key (to be prefixed with alias/). Set to 'csi' to use the module's CSI alias naming convention | `string` | `null` | no |
 | <a name="input_aws"></a> [aws](#input\_aws) | n/a | <pre>object({<br/>    account_id   = string<br/>    default_tags = optional(map(string), {})<br/>    partition    = optional(string, "aws")<br/>    region       = string<br/>    url_suffix   = optional(string, "amazonaws.com")<br/>  })</pre> | n/a | yes |
 | <a name="input_bypass_policy_lockout_safety_check"></a> [bypass\_policy\_lockout\_safety\_check](#input\_bypass\_policy\_lockout\_safety\_check) | Whether to bypass the policy lockout safety check. Defaults to false. Only set to true if you are sure you want to do this. | `bool` | `false` | no |
 | <a name="input_create_policies"></a> [create\_policies](#input\_create\_policies) | Whether to create Admin and User IAM policies for the KMS key. Defaults to true | `bool` | `true` | no |

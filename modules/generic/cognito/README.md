@@ -37,7 +37,7 @@ No modules.
 
 | Name | Description | Type | Default | Required |
 |------|-------------|------|---------|:--------:|
-| <a name="input_access_token_validity"></a> [access\_token\_validity](#input\_access\_token\_validity) | Access Token Validity | <pre>object({<br/>    value = optional(number, 480)<br/>    units = optional(string, "minutes")<br/>  })</pre> | <pre>{<br/>  "units": "minutes",<br/>  "validity": 480<br/>}</pre> | no |
+| <a name="input_access_token_validity"></a> [access\_token\_validity](#input\_access\_token\_validity) | Access Token Validity | <pre>object({<br/>    value = optional(number, 480)<br/>    units = optional(string, "minutes")<br/>  })</pre> | <pre>{<br/>  "units": "minutes",<br/>  "value": 480<br/>}</pre> | no |
 | <a name="input_allowed_oauth_scopes"></a> [allowed\_oauth\_scopes](#input\_allowed\_oauth\_scopes) | Allowed OAuth Scopes for Cognito | `list(string)` | <pre>[<br/>  "openid",<br/>  "email",<br/>  "profile"<br/>]</pre> | no |
 | <a name="input_app_fqdn"></a> [app\_fqdn](#input\_app\_fqdn) | Fully Qualified Domain Name for the App protected by Cognito | `string` | n/a | yes |
 | <a name="input_aws"></a> [aws](#input\_aws) | n/a | <pre>object({<br/>    account_id   = string<br/>    default_tags = optional(map(string), {})<br/>    partition    = optional(string, "aws")<br/>    region       = string<br/>    url_suffix   = optional(string, "amazonaws.com")<br/>  })</pre> | n/a | yes |

@@ -6,6 +6,8 @@ resource "aws_sns_topic" "main" {
   signature_version = var.signature_version
   fifo_topic        = var.fifo_topic
 
+  content_based_deduplication = var.content_based_deduplication
+
   application_failure_feedback_role_arn    = local.feedback_config["application"]["failure_role_arn"]
   application_success_feedback_role_arn    = local.feedback_config["application"]["success_role_arn"]
   application_success_feedback_sample_rate = local.feedback_config["application"]["success_sample_rate"]

@@ -41,7 +41,7 @@ variable "deletion_window" {
 variable "alias" {
   type        = string
   description = "Alias name for the KMS key (to be prefixed with alias/). Set to 'csi' to use the module's CSI alias naming convention"
-  default     = "null"
+  default     = null
 }
 
 variable "key_policy_documents" {

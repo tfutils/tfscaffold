@@ -5,7 +5,7 @@ resource "aws_route53_zone" "main" {
 
   name          = var.root_domain_name
   comment       = local.unique_id
-  force_destroy = "true"
+  force_destroy = true
 
   vpc {
     vpc_id     = aws_vpc.main.id

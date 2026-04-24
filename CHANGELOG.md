@@ -1,3 +1,58 @@
+## 2.3.0 (24/04/2026)
+
+BREAKING CHANGES:
+
+ * Shebang changed from `#!/bin/bash` to `#!/usr/bin/env bash` for portability.
+ * `set -uo pipefail` now enforced across all scripts. Unbound variable access
+   will now cause failures rather than silent empty expansion.
+ * Bootstrap tag keys changed from capitalised (`tfscaffold:Environment`) to
+   lowercase (`tfscaffold:environment`) for consistency with module conventions.
+
+FEATURES:
+
+ * `error_and_die` now accepts an optional second argument for custom exit codes.
+ * `TF_VAR_aws_account_id` and `TF_VAR_environment` are now exported automatically,
+   making them available to Terraform without explicit variable passthrough.
+ * S3 backend configuration now always includes `encrypt = true`.
+ * S3 backend configuration now injects `profile` when `AWS_PROFILE` is set,
+   enabling named profile support for state access.
+ * Remote dynamic tfvars now supports multiple files: all `*.tfvars` and
+   `*.tfvars.json` files under the environment's S3 prefix are downloaded,
+   replacing the previous single `dynamic.tfvars` pattern.
+ * New `output` action for standalone terraform output retrieval, with optional
+   JSON file output support.
+ * IAM role module now supports `sts:ExternalId` conditions via optional
+   `external_id` field on trusted principals.
+ * SNS module now supports `content_based_deduplication` for FIFO topics.
+ * Lambda module now supports `reserved_concurrent_executions`.
+
+BUG FIXES:
+
+ * Fixed unquoted variable expansions throughout `terraform.sh` (~20 instances),
+   including two HIGH-severity `rm` commands inside `trap` statements.
+ * Fixed `set -u` safety: all `declare` statements now initialised, empty array
+   access guarded, and `${AWS_DEFAULT_REGION:-}` defaulted.
+ * Fixed cognito module `access_token_validity` default key typo:
+   `validity` corrected to `value`.
+ * Fixed KMS module `alias` variable default from string `"null"` to HCL `null`.
+ * Fixed VPC module `force_destroy` from string `"true"` to boolean `true`.
+ * Fixed missing semicolons throughout `terraform.sh` for style consistency.
+ * Fixed `lockfile` variable quoting in conditional test.
+
+CHORES:
+
+ * Removed dead code: `data.aws_iam_policy_document.default_assumerole` from
+   bootstrap (never referenced).
+ * Removed duplicate `data.aws_iam_policy_document.xray` from lambda module
+   (functionality already in `lambda_core.tf`).
+ * Removed committed state files from bootstrap directory.
+ * Renamed `module.s3bucket_other.tf` to `module.s3bucket_bestpractice.tf` to
+   match the module name it declares.
+ * Replaced TODO comment on cognito SNS policy with explanation of why
+   `sns:Publish` on `*` is required for Cognito MFA/SMS.
+ * Regenerated all terraform-docs README files.
+ * Added vim modelines to all shell scripts.
+
 ## 2.0.1 (12/02/2025)
 
  * Updated included modules to follow new standard and include other generics
