@@ -2,7 +2,7 @@ resource "aws_cognito_identity_provider" "saml" {
   count = local.saml_idp ? 1 : 0
 
   user_pool_id = aws_cognito_user_pool.main.id
-  
+
   provider_name = local.identity_provider_name
   provider_type = "SAML"
 

@@ -346,6 +346,7 @@ fi;
 # Export common variables for terraform consumption as lowest-precedence defaults.
 # These will be overridden by any tfvars files or -var arguments.
 export TF_VAR_aws_account_id="${aws_account_id}";
+export TF_VAR_region="${region}";
 [ -n "${environment:-}" ] && export TF_VAR_environment="${environment}";
 
 # Validate S3 bucket. Set default if undefined
@@ -610,6 +611,36 @@ precedence for variable values is as you expect.
 # Build up the tfvars arguments for terraform command line
 for file_path in "${tf_var_file_paths[@]}"; do
   tf_var_params+=" -var-file=${file_path}";
+done;
+
+# Ensure the region from -r/--region always takes precedence over any
+# region value defined in tfvars files. -var has higher precedence than
+# -var-file in terraform, so this guarantees the -r flag is authoritative.
+# See: https://github.com/tfutils/tfscaffold/issues/37
+tf_var_params+=" -var region=${region}";
+
+# Warn if any tfvars file defines a region that differs from the -r value.
+# The -var override above means the -r value will win, but the user should
+# know their tfvars are being overridden to avoid unintended consequences.
+for file_path in "${tf_var_file_paths[@]}"; do
+  if [ -f "${file_path}" ]; then
+    declare tfvars_region="$(sed -n -e 's/^\s*region\s*=\s*"\{0,1\}\([^"]*\)"\{0,1\}\s*$/\1/p' "${file_path}")";
+    if [ -n "${tfvars_region}" ] && [ "${tfvars_region}" != "${region}" ]; then
+      echo -e "
+###################################################################
+# WARNING: Region mismatch detected                               #
+###################################################################
+# The file: ${file_path}
+# defines region = \"${tfvars_region}\"
+# but tfscaffold is running with region = \"${region}\"
+#
+# The -r/--region value (${region}) will take precedence.
+# If this is not intentional, update the tfvars file or change
+# the -r flag to match.
+###################################################################";
+    fi;
+    unset tfvars_region;
+  fi;
 done;
 
 ##

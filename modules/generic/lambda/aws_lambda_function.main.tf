@@ -26,14 +26,18 @@ resource "aws_lambda_function" "main" {
   # This is only possible when the s3_bucket is in the same region as the function,
   # otherwise you will need to copy the archive locally using e.g. an AWS CLI call
   # and pass the base64 content from that file into var.function_source_archive_file_path
-  s3_bucket         = var.function_source_type == "s3" ? data.aws_s3_object.function_source[0].bucket : null
-  s3_key            = var.function_source_type == "s3" ? data.aws_s3_object.function_source[0].key : null
-  s3_object_version = var.function_source_type == "s3" ? data.aws_s3_object.function_source[0].version_id : null
+  #
+  # Check length before accessing [0] - data source may be empty (e.g., during destroy with placeholder)
+  # When placeholder is detected (data source empty), use dummy values to satisfy Terraform validation
+  s3_bucket         = var.function_source_type == "s3" && length(data.aws_s3_object.function_source) > 0 ? data.aws_s3_object.function_source[0].bucket : null
+  s3_key            = var.function_source_type == "s3" && length(data.aws_s3_object.function_source) > 0 ? data.aws_s3_object.function_source[0].key : null
+  s3_object_version = var.function_source_type == "s3" && length(data.aws_s3_object.function_source) > 0 ? data.aws_s3_object.function_source[0].version_id : null
 
   # If (function_source && function_file_extension) or (function_dir) or (function_source_archive_file_path) are provided
   # then we are uploading a zip file from local.archive_path, otherwise it must be the s3 section above
+  # SPECIAL CASE: When data source is empty (placeholder during destroy), use dummy filename to satisfy validation
   filename = (
-    var.function_source_type == "s3" ? null :
+    var.function_source_type == "s3" ? (length(data.aws_s3_object.function_source) == 0 ? "/tmp/placeholder.zip" : null) :
       var.function_source_type == "file" || var.function_source_type == "directory" ? local.archive_path :
         var.function_source_type == "archive" ? var.function_source_archive_file_path :
           null
@@ -71,15 +75,15 @@ resource "aws_lambda_function" "main" {
   }
 
   dynamic "environment" {
-    for_each = var.lambda_env_vars != null && length(var.lambda_env_vars) > 0 ? [1] : []
+    for_each = length(local.effective_env_vars) > 0 ? [1] : []
 
     content {
-      variables = var.lambda_env_vars
+      variables = local.effective_env_vars
     }
   }
 
   tracing_config {
-    mode = var.xray_mode
+    mode = local.effective_xray_mode
   }
 
   dynamic "vpc_config" {

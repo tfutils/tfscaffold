@@ -73,13 +73,10 @@ variable "cors_rules" {
 variable "expected_bucket_owner" {
   type        = string
   description = <<-EOT
-    The expected account ID of the bucket owner.
-    
-    CAUTION: This should usually be left as null, however when importing buckets,
-    this will likely be set to the account ID of the bucket owner.
-    While not incorrect, resources that take an expected_bucket_owner property will
-    be tainted if the value is changed. Therefore, not setting this when it has been
-    set during import can cause these objects to be recreated.
+    Legacy compatibility input for callers that still provide an expected bucket owner.
+
+    The AWS provider has deprecated expected_bucket_owner on the managed S3 bucket
+    subresources used by this module, so this value is currently ignored.
   EOT
 
   default = null

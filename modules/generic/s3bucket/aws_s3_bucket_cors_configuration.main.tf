@@ -3,9 +3,6 @@ resource "aws_s3_bucket_cors_configuration" "main" {
 
   bucket = aws_s3_bucket.main.id
 
-  # See variable description for more information
-  expected_bucket_owner = var.expected_bucket_owner
-
   dynamic "cors_rule" {
     for_each = var.cors_rules
 

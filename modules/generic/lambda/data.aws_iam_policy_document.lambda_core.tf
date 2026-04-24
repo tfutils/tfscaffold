@@ -27,6 +27,30 @@ data "aws_iam_policy_document" "lambda_core" {
     ]
   }
 
+  # Lambda@Edge functions execute in CloudFront edge locations and create
+  # log groups in each execution region using the naming convention
+  # /aws/lambda/<deploy-region>.<function-name>. The wildcard region in
+  # the ARN permits logging from all edge locations.
+  # Credit: @philberesford (PR #47)
+  dynamic "statement" {
+    for_each = var.edge ? [1] : []
+
+    content {
+      sid    = "AllowEdgeLambdaLogging"
+      effect = "Allow"
+
+      actions = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+
+      resources = [
+        "arn:aws:logs:*:${local.aws_account_id}:log-group:/aws/lambda/${local.region}.${local.function_name}:*",
+      ]
+    }
+  }
+
   dynamic "statement" {
     for_each = var.insights["enabled"] ? [1] : []
 

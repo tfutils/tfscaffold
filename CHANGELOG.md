@@ -38,6 +38,9 @@ BUG FIXES:
  * Fixed VPC module `force_destroy` from string `"true"` to boolean `true`.
  * Fixed missing semicolons throughout `terraform.sh` for style consistency.
  * Fixed `lockfile` variable quoting in conditional test.
+ * Fixed `-r`/`--region` flag not being authoritative over tfvars files
+   (#37). Region is now passed as `-var region=` (highest precedence) and
+   exported as `TF_VAR_region` (lowest precedence fallback).
 
 CHORES:
 

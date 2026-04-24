@@ -1,14 +1,14 @@
-resource "aws_cognito_user_pool_ui_customization" "saml" {
-  count = local.saml_idp && var.saml_idp["ui_customisation"] != null ? 1 : 0
+resource "aws_cognito_user_pool_ui_customization" "main" {
+  count = var.ui_customisation != null ? 1 : 0
 
-  client_id = aws_cognito_user_pool_client.saml[0].id
+  client_id = local.saml_idp ? aws_cognito_user_pool_client.saml[0].id : aws_cognito_user_pool_client.cognito[0].id
 
-  css = var.saml_idp["ui_customisation"]["css"]
+  css = var.ui_customisation["css"]
 
   image_file = (
-    var.saml_idp["ui_customisation"]["image"] == null ? null :
-    var.saml_idp["ui_customisation"]["image"]["base64"] != null ? var.saml_idp["ui_customisation"]["image"]["base64"] :
-    filebase64(var.saml_idp["ui_customisation"]["image"]["file"])
+    var.ui_customisation["image"] == null ? null :
+    var.ui_customisation["image"]["base64"] != null ? var.ui_customisation["image"]["base64"] :
+    filebase64(var.ui_customisation["image"]["file"])
   )
 
   # Refer to the aws_cognito_user_pool_domain resource's

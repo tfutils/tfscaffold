@@ -3,7 +3,4 @@ resource "aws_s3_bucket_accelerate_configuration" "main" {
 
   bucket = aws_s3_bucket.main.id
   status = "Enabled"
-
-  # See variable description for more information
-  expected_bucket_owner = var.expected_bucket_owner
 }

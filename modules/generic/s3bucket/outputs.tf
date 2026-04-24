@@ -31,17 +31,16 @@ output "id" {
 }
 
 output "lifecycle_configuration_id" {
-  value = var.lifecycle_rules == null ? null : aws_s3_bucket_lifecycle_configuration.main[0].id
+  value = var.lifecycle_rules == null ? null : aws_s3_bucket_lifecycle_configuration.main[0].rule[*].id
 }
 
 output "logging" {
   value = contains(keys(var.bucket_logging_target), "bucket") ? aws_s3_bucket_logging.main[0].id : null
 }
 
-# Temporary disablement pending imports
-#output "ownership_controls" {
-#  value = var.object_ownership == "Unspecified" ? "Unspecified" : aws_s3_bucket_ownership_controls.main[0].id
-#}
+output "ownership_controls" {
+  value = var.object_ownership == "Unspecified" ? "Unspecified" : aws_s3_bucket_ownership_controls.main[0].id
+}
 
 output "policy" {
   value = aws_s3_bucket_policy.main.policy

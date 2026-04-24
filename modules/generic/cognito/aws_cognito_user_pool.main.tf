@@ -3,13 +3,17 @@ resource "aws_cognito_user_pool" "main" {
 
   account_recovery_setting {
     recovery_mechanism {
-      name     = "verified_phone_number"
+      name     = "verified_email"
       priority = 1
     }
 
-    recovery_mechanism {
-      name     = "verified_email"
-      priority = 2
+    dynamic "recovery_mechanism" {
+      for_each = var.sms_enabled ? [1] : []
+
+      content {
+        name     = "verified_phone_number"
+        priority = 2
+      }
     }
   }
 
@@ -35,9 +39,17 @@ resource "aws_cognito_user_pool" "main" {
     }
   }
 
-  sms_configuration {
-    external_id    = "${local.unique_id}-user-pool"
-    sns_caller_arn = aws_iam_role.cognito_user_pool_sms.arn
+  software_token_mfa_configuration {
+    enabled = true
+  }
+
+  dynamic "sms_configuration" {
+    for_each = var.sms_enabled ? [1] : []
+
+    content {
+      external_id    = "${local.unique_id}-user-pool"
+      sns_caller_arn = aws_iam_role.cognito_user_pool_sms[0].arn
+    }
   }
 
   username_attributes = [

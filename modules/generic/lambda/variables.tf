@@ -226,6 +226,7 @@ variable "function_errors" {
       period                    = optional(number, 120)
       statistic                 = optional(string, "Maximum")
       threshold                 = optional(number, 0)
+      threshold_type            = optional(string, "count") # "count" or "percentage"
       actions                   = optional(list(string), [])
       ok_actions                = optional(list(string), [])
       insufficient_data_actions = optional(list(string), [])
@@ -251,6 +252,7 @@ variable "function_errors" {
       * period: The period in seconds over which the specified statistic is applied
       * statistic: The statistic to apply to the alarm's data
       * threshold: The value against which the specified statistic is compared
+      * threshold_type: Type of threshold - "count" (absolute errors) or "percentage" (error rate %)
       * actions: The list of actions to take when the alarm transitions into an ALARM state
       * ok_actions: The list of actions to take when the alarm transitions into an OK state
       * insufficient_data_actions: The list of actions to take when the alarm transitions into an INSUFFICIENT_DATA state
@@ -261,6 +263,39 @@ variable "function_errors" {
       * managed_sns_topic: Whether to create an SNS topic and an event invoke config for error handling
                            (takes precedence over the topic_arn)
       * topic_arn: If specified, the ARN of the SNS topic to use for the async invocations alarm
+  EOT
+
+  default = null
+}
+
+variable "function_memory" {
+  type = object({
+    alarm = optional(object({
+      name                      = optional(string, null)
+      description               = optional(string, null)
+      evaluation_periods        = optional(number, 2)
+      period                    = optional(number, 300)
+      threshold_percent         = optional(number, 80)
+      actions                   = optional(list(string), [])
+      ok_actions                = optional(list(string), [])
+      insufficient_data_actions = optional(list(string), [])
+      managed_sns_topic         = optional(bool, false)
+    }), null)
+  })
+
+  description = <<-EOT
+    Function Memory Monitoring Config
+
+    alarm: Config for memory usage alarm
+      * name: The name of the alarm (defaults to "$${local.unique_id}-memory-high")
+      * description: The description of the alarm (defaults to "Memory usage > {threshold_percent}% for Lambda $${local.unique_id}")
+      * evaluation_periods: The number of periods over which data is compared to the threshold
+      * period: The period in seconds over which the specified statistic is applied
+      * threshold_percent: Memory usage percentage threshold (default 80%)
+      * actions: The list of actions to take when the alarm transitions into an ALARM state
+      * ok_actions: The list of actions to take when the alarm transitions into an OK state
+      * insufficient_data_actions: The list of actions to take when the alarm transitions into an INSUFFICIENT_DATA state
+      * managed_sns_topic: Whether to create an SNS topic for the alarm (in addition to the actions specified)
   EOT
 
   default = null
@@ -307,6 +342,34 @@ variable "insights" {
   })
 
   description = "Lambda insights layer configuration. Ignored when edge is true"
+
+  default = {
+    enabled = false
+  }
+}
+
+variable "adot" {
+  type = object({
+    enabled     = optional(bool, false)
+    sdk_version = optional(string, "1-30-2")
+  })
+
+  description = "AWS Distro for OpenTelemetry (ADOT) Node.js layer configuration. Ignored when edge is true. When enabled, automatically injects standard OTEL environment variables and sets X-Ray tracing to Active. Caller's lambda_env_vars override auto-injected defaults."
+
+  default = {
+    enabled = false
+  }
+}
+
+variable "ssm_extension" {
+  type = object({
+    enabled   = optional(bool, false)
+    version   = optional(number, 4)
+    http_port = optional(number, 2773)
+    cache_ttl = optional(number, 60)
+  })
+
+  description = "AWS Parameters and Secrets Lambda Extension configuration. Ignored when edge is true. When enabled, automatically injects extension environment variables. Caller's lambda_env_vars override auto-injected defaults."
 
   default = {
     enabled = false

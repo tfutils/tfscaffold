@@ -1,9 +1,14 @@
-output "user_pool" { 
+output "user_pool" {
   value = {
     arn    = aws_cognito_user_pool.main.arn
     id     = aws_cognito_user_pool.main.id
     domain = local.user_pool_domain
-  } 
+  }
+}
+
+output "user_pool_domain_ready" {
+  description = "Cognito user pool domain fully provisioned"
+  value       = local.custom_domain ? one(aws_route53_record.alias_cognito_user_pool_domain_custom[*].id) : one(aws_cognito_user_pool_domain.prefix[*].id)
 }
 
 output "user_pool_client" {

@@ -60,17 +60,6 @@ variable "saml_idp" {
       url     = optional(string, null) # "https://login.microsoftonline.com/<tenant_id>/federationmetadata/2007-06/federationmetadata.xml?appid=<app_id>"
       content = optional(string, null) # "<xml>...</xml>"
     })
-
-    ui_customisation = object({
-      css = optional(string, ".label-customizable {font-weight: 400;}")
-
-      image = optional(object({
-        base64 = optional(string, null)
-        file   = optional(string, null)
-      }), null)
-
-      name = optional(string, null)
-    })
   })
 
   validation {
@@ -82,14 +71,29 @@ variable "saml_idp" {
     error_message = "Either SAML SSO Metadata URL or SAML SSO Metadata Content must be set when using a SAML IdP, but not both"
   }
 
+  default = null
+}
+
+variable "ui_customisation" {
+  type = object({
+    css = optional(string, ".label-customizable {font-weight: 400;}")
+
+    image = optional(object({
+      base64 = optional(string, null)
+      file   = optional(string, null)
+    }), null)
+
+    name = optional(string, null)
+  })
+
   validation {
     condition = (
-      var.saml_idp["ui_customisation"] == null ? true :
-      var.saml_idp["ui_customisation"]["image"] == null ? true :
-      var.saml_idp["ui_customisation"]["image"]["base64"] != var.saml_idp["ui_customisation"]["image"]["file"]
+      var.ui_customisation == null ? true :
+      var.ui_customisation["image"] == null ? true :
+      var.ui_customisation["image"]["base64"] != var.ui_customisation["image"]["file"]
     )
 
-    error_message = "When specifying a custom image for the SAML IdP UI Customisation, either the base64 or file path must be set, but not both"
+    error_message = "When specifying a custom image for the UI Customisation, either the base64 or file path must be set, but not both"
   }
 
   default = null
@@ -149,4 +153,16 @@ variable "logout_urls" {
   type        = list(string)
   description = "Logout URLs for Cognito if logout_urls_are_callback_urls is false"
   default     = []
+}
+
+variable "sms_enabled" {
+  type        = bool
+  description = "Enable SMS for MFA"
+  default     = false
+}
+
+variable "generate_secret" {
+  type        = bool
+  description = "Generate a client secret. Must be false for public clients (SPA/PKCE)."
+  default     = true
 }
