@@ -23,7 +23,7 @@ No modules.
 | [aws_cognito_user_pool_client.saml](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_client) | resource |
 | [aws_cognito_user_pool_domain.custom](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_domain) | resource |
 | [aws_cognito_user_pool_domain.prefix](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_domain) | resource |
-| [aws_cognito_user_pool_ui_customization.saml](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_ui_customization) | resource |
+| [aws_cognito_user_pool_ui_customization.main](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/cognito_user_pool_ui_customization) | resource |
 | [aws_iam_role.cognito_user_pool_sms](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
 | [aws_iam_role_policy.cognito_user_pool_sms](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
 | [aws_route53_record.alias_cognito_user_pool_domain_custom](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/route53_record) | resource |
@@ -44,10 +44,13 @@ No modules.
 | <a name="input_callback_urls"></a> [callback\_urls](#input\_callback\_urls) | Callback URLs for Cognito | `list(string)` | `[]` | no |
 | <a name="input_custom_domain"></a> [custom\_domain](#input\_custom\_domain) | Optional FQDN & Route53 Public Hosted Zone ID for a custom Cognito User Pool Domain | <pre>object({<br/>    cloudfront_acm_certificate_arn = string<br/>    fqdn                           = string<br/>    route53_public_hosted_zone_id  = string<br/>  })</pre> | `null` | no |
 | <a name="input_explicit_auth_flows"></a> [explicit\_auth\_flows](#input\_explicit\_auth\_flows) | Explicit Auth Flows for Cognito | `list(string)` | <pre>[<br/>  "ALLOW_USER_PASSWORD_AUTH",<br/>  "ALLOW_USER_SRP_AUTH",<br/>  "ALLOW_REFRESH_TOKEN_AUTH"<br/>]</pre> | no |
+| <a name="input_generate_secret"></a> [generate\_secret](#input\_generate\_secret) | Generate a client secret. Must be false for public clients (SPA/PKCE). | `bool` | `true` | no |
 | <a name="input_logout_urls"></a> [logout\_urls](#input\_logout\_urls) | Logout URLs for Cognito if logout\_urls\_are\_callback\_urls is false | `list(string)` | `[]` | no |
 | <a name="input_logout_urls_are_callback_urls"></a> [logout\_urls\_are\_callback\_urls](#input\_logout\_urls\_are\_callback\_urls) | Whether the Logout URLs are the same as the Callback URLs | `bool` | `true` | no |
 | <a name="input_module_parents"></a> [module\_parents](#input\_module\_parents) | List of parent module names | `list(string)` | `[]` | no |
-| <a name="input_saml_idp"></a> [saml\_idp](#input\_saml\_idp) | n/a | <pre>object({<br/>    sso_metadata = object({<br/>      url     = optional(string, null) # "https://login.microsoftonline.com/<tenant_id>/federationmetadata/2007-06/federationmetadata.xml?appid=<app_id>"<br/>      content = optional(string, null) # "<xml>...</xml>"<br/>    })<br/><br/>    ui_customisation = object({<br/>      css = optional(string, ".label-customizable {font-weight: 400;}")<br/><br/>      image = optional(object({<br/>        base64 = optional(string, null)<br/>        file   = optional(string, null)<br/>      }), null)<br/><br/>      name = optional(string, null)<br/>    })<br/>  })</pre> | `null` | no |
+| <a name="input_saml_idp"></a> [saml\_idp](#input\_saml\_idp) | n/a | <pre>object({<br/>    sso_metadata = object({<br/>      url     = optional(string, null) # "https://login.microsoftonline.com/<tenant_id>/federationmetadata/2007-06/federationmetadata.xml?appid=<app_id>"<br/>      content = optional(string, null) # "<xml>...</xml>"<br/>    })<br/>  })</pre> | `null` | no |
+| <a name="input_sms_enabled"></a> [sms\_enabled](#input\_sms\_enabled) | Enable SMS for MFA | `bool` | `false` | no |
+| <a name="input_ui_customisation"></a> [ui\_customisation](#input\_ui\_customisation) | n/a | <pre>object({<br/>    css = optional(string, ".label-customizable {font-weight: 400;}")<br/><br/>    image = optional(object({<br/>      base64 = optional(string, null)<br/>      file   = optional(string, null)<br/>    }), null)<br/><br/>    name = optional(string, null)<br/>  })</pre> | `null` | no |
 | <a name="input_unique_ids"></a> [unique\_ids](#input\_unique\_ids) | n/a | <pre>object({<br/>    # All marked as optional for consistency of code.<br/>    # Whether each is optional depends on the module implementation.<br/>    local   = optional(string, null)<br/>    account = optional(string, null)<br/>    global  = optional(string, null)<br/>  })</pre> | n/a | yes |
 | <a name="input_user_pool_domain_prefix"></a> [user\_pool\_domain\_prefix](#input\_user\_pool\_domain\_prefix) | Cognito User Pool Domain Prefix if not using a custom domain. Defaults to local.unique\_id | `string` | `null` | no |
 
@@ -58,4 +61,5 @@ No modules.
 | <a name="output_saml_parameters"></a> [saml\_parameters](#output\_saml\_parameters) | SAML Parameters |
 | <a name="output_user_pool"></a> [user\_pool](#output\_user\_pool) | n/a |
 | <a name="output_user_pool_client"></a> [user\_pool\_client](#output\_user\_pool\_client) | Client User Pool Client Secret |
+| <a name="output_user_pool_domain_ready"></a> [user\_pool\_domain\_ready](#output\_user\_pool\_domain\_ready) | Cognito user pool domain fully provisioned |
 <!-- END_TF_DOCS -->
