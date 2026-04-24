@@ -1,6 +1,18 @@
 # terraformscaffold
 
-A framework for controlling multi-environment multi-component terraform-managed AWS infrastructure
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![GitHub Release](https://img.shields.io/github/v/release/tfutils/tfscaffold)](https://github.com/tfutils/tfscaffold/releases)
+
+A framework for controlling multi-environment multi-component terraform-managed AWS infrastructure.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Concepts & Assumptions](#concepts--assumptions)
+- [Usage](#usage)
+- [Contributing](#contributing)
+- [Security](#security)
+- [License](#license)
 
 ## Overview
 
@@ -189,3 +201,27 @@ When the `AWS_PROFILE` environment variable is set, scaffold automatically inclu
 ### State Encryption
 
 S3 backend state is always configured with `encrypt = true`, ensuring state files are encrypted at rest in S3 using server-side encryption.
+
+## Contributing
+
+Contributions are welcome. Please:
+
+1. Search [existing issues](https://github.com/tfutils/tfscaffold/issues)
+   before opening a new one
+2. Use the [bug report](.github/ISSUE_TEMPLATE/bug-report.yml) or
+   [feature request](.github/ISSUE_TEMPLATE/feature-request.yml) templates
+3. Open a PR against `master` — one logical change per PR
+4. Follow the [bash coding standards](.github/instructions/bash.instructions.md)
+5. Read [AGENTS.md](AGENTS.md) for project conventions and quality bar
+
+## Security
+
+To report a vulnerability, please see [SECURITY.md](SECURITY.md).
+
+**Do not open a public issue for security vulnerabilities.** Use
+[GitHub Security Advisories](https://github.com/tfutils/tfscaffold/security/advisories/new)
+instead.
+
+## License
+
+[MIT](LICENSE)
