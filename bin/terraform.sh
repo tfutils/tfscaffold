@@ -8,6 +8,11 @@
 set -uo pipefail;
 
 ##
+# Terraform Binary
+##
+readonly terraform_bin="${TERRAFORM_BIN:-terraform}";
+
+##
 # Set Script Version
 ##
 readonly script_ver='2.3.0';
@@ -748,16 +753,16 @@ if [ "${bootstrapped}" == 'true' ]; then
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   [ "${lock_table}" == 'true' ] && echo "Using DynamoDB Table for state locking: ${bucket}";
-  terraform init ${no_color} ${lockfile_or_upgrade} \
+  ${terraform_bin} init ${no_color} ${lockfile_or_upgrade} \
     || error_and_die 'Terraform init failed';
 
   if [ "${action}" == 'destroy' ] && [ "${destroy_response}" == 'I am not an idiot, I know what I am doing!' ]; then
     echo -e "terraform {\n  backend \"local\" {}\n}" > backend_tfscaffold.tf;
-    terraform init -migrate-state -force-copy;
+    ${terraform_bin} init -migrate-state -force-copy;
   fi;
 else
   # We are bootstrapping. Download the providers, skip the backend config.
-  terraform init \
+  ${terraform_bin} init \
     -backend=false \
     ${no_color} \
     ${lockfile} \
@@ -779,7 +784,7 @@ case "${action}" in
       detailed='-detailed-exitcode';
     fi;
 
-    terraform "${action}" \
+    ${terraform_bin} "${action}" \
       -input=false \
       ${refresh} \
       ${tf_var_params} \
@@ -807,9 +812,9 @@ case "${action}" in
     ;;
   'graph')
     mkdir -p build || error_and_die "Failed to create output directory '$(pwd)/build'";
-    terraform graph ${extra_args} -draw-cycles | dot -Tpng > "build/${project}-${aws_account_id}-${region}-${environment}.png" \
+    ${terraform_bin} graph ${extra_args} -draw-cycles | dot -Tpng > "build/${project}-${aws_account_id}-${region}-${environment}.png" \
       || error_and_die 'Terraform simple graph generation failed';
-    terraform graph ${extra_args} -draw-cycles -verbose | dot -Tpng > "build/${project}-${aws_account_id}-${region}-${environment}-verbose.png" \
+    ${terraform_bin} graph ${extra_args} -draw-cycles -verbose | dot -Tpng > "build/${project}-${aws_account_id}-${region}-${environment}-verbose.png" \
       || error_and_die 'Terraform verbose graph generation failed';
     exit 0;
     ;;
@@ -827,7 +832,7 @@ case "${action}" in
       extra_args+=' -auto-approve=true';
     else # action is `destroy`
       # Check terraform version - if pre-0.15, need to add `-force`; 0.15 and above instead use `-auto-approve`
-      if [ "$(terraform version | head -n1 | cut -d' ' -f2 | cut -d'.' -f1)" == 'v0' ] && [ "$(terraform version | head -n1 | cut -d' ' -f2 | cut -d'.' -f2)" -lt 15 ]; then
+      if [ "$(${terraform_bin} version | head -n1 | cut -d' ' -f2 | cut -d'.' -f1)" == 'v0' ] && [ "$(${terraform_bin} version | head -n1 | cut -d' ' -f2 | cut -d'.' -f2)" -lt 15 ]; then
         echo 'Compatibility: Adding to terraform arguments: -force';
         force='-force';
       else
@@ -845,7 +850,7 @@ case "${action}" in
 
       apply_plan="build/${plan_file_name}";
 
-      terraform "${action}" \
+      ${terraform_bin} "${action}" \
         -input=false \
         ${refresh} \
         -parallelism=300 \
@@ -854,7 +859,7 @@ case "${action}" in
         ${apply_plan};
       exit_code=$?;
     else
-      terraform "${action}" \
+      ${terraform_bin} "${action}" \
         -input=false \
         ${refresh} \
         ${tf_var_params} \
@@ -875,7 +880,7 @@ case "${action}" in
 
         # Push Terraform Remote State to S3
         # TODO: Add -upgrade to init when we drop support for <0.10
-        echo 'yes' | terraform init ${lockfile} || error_and_die 'Terraform init failed';
+        echo 'yes' | ${terraform_bin} init ${lockfile} || error_and_die 'Terraform init failed';
 
         # Hard cleanup
         rm -f terraform.tfstate; # Prime not the backup
@@ -892,7 +897,7 @@ case "${action}" in
 
     if [ "${output_json}" == 'true' ] && [ "${action}" != 'destroy' ]; then
       echo "Writing terraform output to $(pwd)/.terraform.output.json";
-      terraform output -json -no-color > .terraform.output.json;
+      ${terraform_bin} output -json -no-color > .terraform.output.json;
     fi;
 
     if [ -f 'post.sh' ]; then
@@ -908,7 +913,7 @@ case "${action}" in
       rm -f .terraform.output.json;
     fi;
 
-    terraform "${action}" ${extra_args};
+    ${terraform_bin} "${action}" ${extra_args};
     status="${?}";
 
     if [ "${status}" -ne 0 ]; then
@@ -917,15 +922,15 @@ case "${action}" in
 
     if [ "${output_json}" == 'true' ]; then
       echo "Writing terraform output to $(pwd)/.terraform.output.json";
-      terraform output -json -no-color > .terraform.output.json \
+      ${terraform_bin} output -json -no-color > .terraform.output.json \
         || error_and_die 'Terraform output -json failed.';
     fi;
     ;;
   '*taint')
-    terraform "${action}" ${extra_args} || error_and_die "Terraform ${action} failed.";
+    ${terraform_bin} "${action}" ${extra_args} || error_and_die "Terraform ${action} failed.";
     ;;
   'import')
-    terraform "${action}" ${tf_var_params} ${extra_args} || error_and_die "Terraform ${action} failed.";
+    ${terraform_bin} "${action}" ${tf_var_params} ${extra_args} || error_and_die "Terraform ${action} failed.";
     ;;
   'shell')
     echo -e "Here's a shell for the ${component} component.\nIf you want to run terraform actions specific to the ${environment} environment, pass the following options to your terraform commands:\n\n${tf_var_params} ${extra_args}\n\n'exit 0' / 'Ctrl-D' to continue, other exit codes will abort tfscaffold with the same code.";
@@ -933,8 +938,8 @@ case "${action}" in
     ;;
   *)
     echo -e 'Generic action case invoked. Only the additional arguments will be passed to terraform, you break it you fix it:';
-    echo -e "\tterraform ${action} ${extra_args}";
-    terraform "${action}" ${extra_args} \
+    echo -e "\t${terraform_bin} ${action} ${extra_args}";
+    ${terraform_bin} "${action}" ${extra_args} \
       || error_and_die "Terraform ${action} failed.";
     ;;
 esac;
