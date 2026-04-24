@@ -53,6 +53,13 @@ CHORES:
  * Regenerated all terraform-docs README files.
  * Added vim modelines to all shell scripts.
 
+SECURITY:
+
+ * Updated `esbuild` from 0.24.0 to ^0.25.0 (CVE: dev server request
+   forgery, medium severity).
+ * Updated `undici` from 6.21.0 to >=6.21.1 (CVE: insufficiently random
+   values, medium severity).
+
 ## 2.0.1 (12/02/2025)
 
  * Updated included modules to follow new standard and include other generics
