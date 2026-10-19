@@ -53,6 +53,8 @@ Usage: ${0} \\
   -j/--disable-output-json \\
   -n/--no-color \\
   -t/--lock-table \\
+  --state-lockfile[=true|false] \\
+  --no-state-lockfile \\
   -w/--compact-warnings \\
   -- \\
   <additional arguments to forward to the terraform binary call>
@@ -111,6 +113,16 @@ lock-table (optional):
   to use a DynamoDB table with the same name as the S3 bucket
   for terraform state locking.
 
+state-lockfile (optional):
+  Adds "use_lockfile = true" to the S3 backend configuration,
+  enabling native S3 state locking via a .tflock object alongside
+  the state file. When not provided, on unless the binary is
+  identified as Terraform < 1.11 or OpenTofu < 1.10, which reject it.
+  An unrecognised version keeps it on.
+  Force on with --state-lockfile; force off with
+  --state-lockfile=false or --no-state-lockfile.
+  May be combined with --lock-table, in which case both locks are acquired.
+
 no-color (optional):
  Append -no-color to all terraform calls
 
@@ -147,7 +159,7 @@ fi
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
          -o dhjntvwa:b:c:e:g:i:l:p:r: \
-         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,groups:,project:,region:,lockfile:,etc-dir:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
+         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,groups:,project:,region:,lockfile:,etc-dir:,detailed-exitcode,lock-table,state-lockfile::,no-state-lockfile,no-color,compact-warnings,disable-output-json' \
          -n "${0}" \
          -- \
          "${@}");
@@ -173,6 +185,7 @@ declare project='';
 declare etc_dir_arg='';
 declare detailed_exitcode='';
 declare lock_table='';
+declare state_lockfile='';
 declare no_color='';
 declare compact_warnings='';
 declare output_json='true';
@@ -279,6 +292,20 @@ while true; do
     -t|--lock-table)
       shift;
       lock_table='true';
+      ;;
+    --state-lockfile)
+      shift;
+      # getopt always emits the optional value, empty when not given
+      if [ "${1}" == 'false' ]; then
+        state_lockfile='false';
+      else
+        state_lockfile='true';
+      fi;
+      shift;
+      ;;
+    --no-state-lockfile)
+      shift;
+      state_lockfile='false';
       ;;
     -n|--no-color)
       shift;
@@ -706,6 +733,35 @@ if [ -n "${backend_profile}" ]; then
     profile        = \"${backend_profile}\"";
 fi;
 
+if [ -z "${state_lockfile}" ]; then
+  declare tf_version_line="$(${terraform_bin} version 2>/dev/null | head -n1)";
+  declare tf_flavour="${tf_version_line%% *}";
+  declare tf_version="$(echo "${tf_version_line}" | cut -d' ' -f2 | sed 's/^v//')";
+  declare tf_major="$(echo "${tf_version}" | cut -d'.' -f1)";
+  declare tf_minor="$(echo "${tf_version}" | cut -d'.' -f2)";
+  declare min_minor='';
+  case "${tf_flavour}" in
+    Terraform) min_minor='11'; ;;
+    OpenTofu)  min_minor='10'; ;;
+  esac;
+  # Only a positively identified old version turns locking off; an unknown one keeps it on.
+  state_lockfile='true';
+  if [ -n "${min_minor}" ] && [[ "${tf_major}" =~ ^[0-9]+$ ]] && [[ "${tf_minor}" =~ ^[0-9]+$ ]]; then
+    if [ "${tf_major}" -lt 1 ] || { [ "${tf_major}" -eq 1 ] && [ "${tf_minor}" -lt "${min_minor}" ]; }; then
+      state_lockfile='false';
+      echo "Native S3 state locking not enabled: ${tf_version_line} predates use_lockfile (needs Terraform >= 1.11 or OpenTofu >= 1.10). Pass --state-lockfile to force it on.";
+    fi;
+  else
+    echo "Could not identify '${tf_version_line}' as Terraform or OpenTofu; enabling native S3 state locking. Pass --no-state-lockfile if this binary does not support use_lockfile.";
+  fi;
+fi;
+
+declare state_lockfile_config='';
+if [ "${state_lockfile}" == 'true' ]; then
+  state_lockfile_config="
+    use_lockfile   = true";
+fi;
+
 # No "encrypt = true": without kms_key_id it forces SSE-S3 over the bucket's SSE-KMS default.
 declare backend_config='';
 if [ "${lock_table}" == 'true' ]; then
@@ -714,7 +770,7 @@ if [ "${lock_table}" == 'true' ]; then
     region         = \"${region}\"
     bucket         = \"${bucket}\"
     key            = \"${backend_key}\"
-    dynamodb_table = \"${bucket}\"${backend_profile_config}
+    dynamodb_table = \"${bucket}\"${state_lockfile_config}${backend_profile_config}
   }
 }";
 else
@@ -722,7 +778,7 @@ else
   backend \"s3\" {
     region = \"${region}\"
     bucket = \"${bucket}\"
-    key    = \"${backend_key}\"${backend_profile_config}
+    key    = \"${backend_key}\"${state_lockfile_config}${backend_profile_config}
   }
 }";
 fi;
@@ -767,6 +823,7 @@ if [ "${bootstrapped}" == 'true' ]; then
   # Configure remote state storage
   echo "Setting up S3 remote state from s3://${bucket}/${backend_key}";
   [ "${lock_table}" == 'true' ] && echo "Using DynamoDB Table for state locking: ${bucket}";
+  [ "${state_lockfile}" == 'true' ] && echo 'Using native S3 state locking (use_lockfile)';
   ${terraform_bin} init ${no_color} ${lockfile_or_upgrade} \
     || error_and_die 'Terraform init failed';
 

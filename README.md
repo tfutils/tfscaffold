@@ -139,6 +139,8 @@ bin/terraform.sh \
   -d/--detailed-exitcode   (optional) \
   -j/--disable-output-json (optional) \
   -t/--lock-table          (optional) \
+  --state-lockfile[=true|false] (optional) \
+  --no-state-lockfile      (optional) \
   -n/--no-color            (optional) \
   -w/--compact-warnings    (optional) \
   -- \
@@ -165,7 +167,8 @@ Where:
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.
 * `detailed-exitcode` (optional): Passes detailed exit code flag to terraform.
 * `disable-output-json` (optional): Disables writing a `.terraform.output.json` file when component outputs are updated
-* `lock-table` (optional): Tells tfscaffold to use a DynamoDB Table with the same name as the S3 Bucket for state file locking
+* `lock-table` (optional): Tells tfscaffold to use a DynamoDB Table with the same name as the S3 Bucket for state file locking. Terraform has deprecated DynamoDB state locking in favour of `use_lockfile`; see `state-lockfile`.
+* `state-lockfile` (optional): Adds `use_lockfile = true` to the generated S3 backend, so Terraform locks state with a `.tflock` object next to the state file. The caller needs permission to put and delete that object. With neither flag it is on, except for a binary positively identified as Terraform < 1.11 or OpenTofu < 1.10, which reject `use_lockfile`. An unrecognised version keeps it on, so an unparseable version string can never leave state unlocked. `--state-lockfile` forces it on; `--state-lockfile=false` or `--no-state-lockfile` forces it off. It can be combined with `--lock-table` during a migration, in which case both locks are taken.
 * `no-color` (optional): Passes no-color flag to terraform.
 * `compact-warnings` (optional): Passes compact-warnings flag to terraform.
 * `additional arguments`: Any arguments provided after "--" will be passed directly to terraform as its own arguments, e.g. allowing the provision of a 'target=value' parameter.
