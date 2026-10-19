@@ -46,6 +46,7 @@ Usage: ${0} \\
   -g/--group         [group] (optional, comma-delimited for multiple) \\
   -i/--build-id      [build_id] (optional) \\
   -l/--lockfile      [mode] \\
+  --etc-dir          [etc_directory] (optional) \\
   -p/--project       [project] \\
   -r/--region        [region] \\
   -d/--detailed-exitcode \\
@@ -122,6 +123,11 @@ disable-output-json (optional):
 lockfile:
  Append -lockfile=MODE to calls to terraform init
 
+etc_directory (optional):
+ Override the default etc/ directory (base_path/etc) with another
+ directory containing tfvars files. All tfvars and .terraformrc
+ resolution uses the supplied path instead of base_path/etc.
+
 additional arguments:
  Any arguments provided after "--" will be passed directly to terraform as its own arguments
 EOF
@@ -141,7 +147,7 @@ fi
 readonly raw_arguments="${*}";
 ARGS=$(getopt \
          -o dhjntvwa:b:c:e:g:i:l:p:r: \
-         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,groups:,project:,region:,lockfile:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
+         -l 'help,version,bootstrap,action:,bucket-prefix:,build-id:,component:,environment:,group:,groups:,project:,region:,lockfile:,etc-dir:,detailed-exitcode,lock-table,no-color,compact-warnings,disable-output-json' \
          -n "${0}" \
          -- \
          "${@}");
@@ -164,6 +170,7 @@ declare bucket_prefix='';
 declare build_id='';
 declare lockfile='';
 declare project='';
+declare etc_dir_arg='';
 declare detailed_exitcode='';
 declare lock_table='';
 declare no_color='';
@@ -250,6 +257,13 @@ while true; do
         shift;
       fi;
       ;;
+    --etc-dir)
+      shift;
+      if [ -n "${1}" ]; then
+        etc_dir_arg="${1}";
+        shift;
+      fi;
+      ;;
     --bootstrap)
       shift;
       bootstrap='true';
@@ -291,6 +305,7 @@ declare extra_args="${@} ${no_color}"; # All arguments supplied after "--"
 script_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )";
 base_path="${script_path%%\/bin}";
 project_name_default="${base_path##*\/}";
+readonly etc_dir="${etc_dir_arg:-${base_path}/etc}";
 
 status=0;
 
@@ -413,7 +428,7 @@ esac;
 # Value is irrelavant, just needs to be non-null
 export TF_IN_AUTOMATION='true';
 
-for rc_path in "${base_path}" "${base_path}/etc" "${component_path}"; do
+for rc_path in "${base_path}" "${etc_dir}" "${component_path}"; do
   if [ -f "${rc_path}/.terraformrc" ]; then
     echo "Found .terraformrc at ${rc_path}/.terraformrc. Overriding.";
     export TF_CLI_CONFIG_FILE="${rc_path}/.terraformrc";
@@ -535,20 +550,20 @@ fi;
 
 # Use versions TFVAR files if exists
 readonly versions_file_name="versions_${region}_${environment}.tfvars";
-readonly versions_file_path="${base_path}/etc/${versions_file_name}";
+readonly versions_file_path="${etc_dir}/${versions_file_name}";
 
 # Check for presence of an environment variables file, and use it if readable
 if [ -n "${environment}" ]; then
-  readonly env_file_path="${base_path}/etc/env_${region}_${environment}.tfvars";
+  readonly env_file_path="${etc_dir}/env_${region}_${environment}.tfvars";
 fi;
 
 # Check for presence of a global variables file, and use it if readable
 readonly global_vars_file_name="global.tfvars";
-readonly global_vars_file_path="${base_path}/etc/${global_vars_file_name}";
+readonly global_vars_file_path="${etc_dir}/${global_vars_file_name}";
 
 # Check for presence of a region variables file, and use it if readable
 readonly region_vars_file_name="${region}.tfvars";
-readonly region_vars_file_path="${base_path}/etc/${region_vars_file_name}";
+readonly region_vars_file_path="${etc_dir}/${region_vars_file_name}";
 
 # Parse comma-delimited group into an array
 declare -a groups=();
@@ -573,7 +588,7 @@ declare -a tf_var_file_paths;
 # so that the environment can explicitly override variables defined in the group(s).
 for group_name in "${groups[@]}"; do
   declare group_vars_file_name="group_${group_name}.tfvars";
-  declare group_vars_file_path="${base_path}/etc/${group_vars_file_name}";
+  declare group_vars_file_path="${etc_dir}/${group_vars_file_name}";
   if [ -f "${group_vars_file_path}" ]; then
     tf_var_file_paths+=("${group_vars_file_path}");
   else

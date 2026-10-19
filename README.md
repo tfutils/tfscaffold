@@ -133,6 +133,7 @@ bin/terraform.sh \
   -g/--group/--groups     `group` (optional, comma-delimited for multiple) \
   -i/--build-id            `build_id` (optional) \
   -l/--lockfile            `mode` (optional) \
+  --etc-dir                `etc_directory` (optional) \
   -p/--project             `project` \
   -r/--region              `region` \
   -d/--detailed-exitcode   (optional) \
@@ -159,6 +160,7 @@ Where:
 * `environment`: The name of the environment the component is to be actioned against, therefore implying the variables file(s) to be included
 * `group` (optional): The name of the group(s) to which the environment belongs, permitting the use of group tfvars files as "meta-environments" shared by more than one environment. Supports comma-delimited values for multiple groups, e.g. `-g dev,live`
 * `lockfile` (optional): Passes the given lockfile mode to terraform.
+* `etc_directory` (optional): Reads tfvars files (and `.terraformrc`) from this directory instead of the default `etc/`. Useful when the variable files are generated or live outside the tfscaffold tree. Combining several etc/ sources is left to the caller.
 * `project`: The name of the project being deployed, as per the default bucket-prefix and state file keyspace
 * `region` (optional): The AWS region name unique to all components and terraform processes. Defaults to the value of the _AWS_DEFAULT_REGION_ environment variable.
 * `detailed-exitcode` (optional): Passes detailed exit code flag to terraform.
