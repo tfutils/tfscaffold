@@ -1,3 +1,36 @@
+## 2.4.0 (19/10/2026)
+
+FEATURES:
+
+ * terraform.sh: native S3 state locking. `--state-lockfile[=true|false]` and
+   `--no-state-lockfile` control `use_lockfile = true` in the generated backend.
+   With neither flag it is on, except for a binary positively identified as
+   Terraform < 1.11 or OpenTofu < 1.10, which reject `use_lockfile`. An
+   unrecognised version keeps it on, so state is never left unlocked by a
+   version string the script fails to parse. It can be combined with
+   `-t`/`--lock-table`, so you can move off DynamoDB locking with both locks
+   held during the switch.
+ * terraform.sh: added `--etc-dir` to read tfvars files from a directory other
+   than `etc/`.
+
+BUG FIXES:
+
+ * terraform.sh: the generated S3 backend no longer sets `encrypt = true`.
+   Without a `kms_key_id` that made Terraform write state with SSE-S3,
+   overriding the SSE-KMS default encryption of a bootstrapped bucket. State
+   now gets the bucket's default encryption.
+ * terraform.sh: `script_ver` now reports the released version (it read 2.3.0
+   for v2.3.3).
+ * terraform.sh: fixed the `-g/--group` usage line, which merged with the
+   `-i/--build-id` line in `--help` output.
+
+## 2.3.3 (24/04/2026)
+
+FEATURES:
+
+ * terraform.sh: added the `TERRAFORM_BIN` environment variable for OpenTofu
+   compatibility, e.g. `TERRAFORM_BIN=tofu`. Defaults to `terraform`.
+
 ## 2.3.2 (24/04/2026)
 
 FEATURES:

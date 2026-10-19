@@ -14,7 +14,7 @@ execution orchestration.
 
 - **Language:** Bash (main script: `bin/terraform.sh`, ~960 LOC)
 - **Default branch:** `master`
-- **Current release:** v2.3.3 (April 2026)
+- **Current release:** v2.4.0 (October 2026)
 - **Maintainer:** Mike Peachey / Jaz (@Zordrak)
 - **Minimal dependencies:** bash, AWS CLI, terraform, GNU getopt
 - **License:** MIT
@@ -26,7 +26,7 @@ bin/
   terraform.sh        The tfscaffold script — the core of the project
   docs.sh             Recursive terraform-docs generation helper
 bootstrap/            Bootstrap Terraform code for creating the S3 state bucket
-                      and DynamoDB lock table
+                      and (legacy) DynamoDB lock table
 components/           Terraform "components" — root modules run directly
   example/            Example component demonstrating conventions
 etc/                  Environment-specific terraform variable files:
