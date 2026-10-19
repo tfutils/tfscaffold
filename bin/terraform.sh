@@ -691,6 +691,7 @@ if [ -n "${backend_profile}" ]; then
     profile        = \"${backend_profile}\"";
 fi;
 
+# No "encrypt = true": without kms_key_id it forces SSE-S3 over the bucket's SSE-KMS default.
 declare backend_config='';
 if [ "${lock_table}" == 'true' ]; then
   backend_config="terraform {
@@ -698,17 +699,15 @@ if [ "${lock_table}" == 'true' ]; then
     region         = \"${region}\"
     bucket         = \"${bucket}\"
     key            = \"${backend_key}\"
-    encrypt        = true
     dynamodb_table = \"${bucket}\"${backend_profile_config}
   }
 }";
 else
   backend_config="terraform {
   backend \"s3\" {
-    region  = \"${region}\"
-    bucket  = \"${bucket}\"
-    key     = \"${backend_key}\"
-    encrypt = true${backend_profile_config}
+    region = \"${region}\"
+    bucket = \"${bucket}\"
+    key    = \"${backend_key}\"${backend_profile_config}
   }
 }";
 fi;
