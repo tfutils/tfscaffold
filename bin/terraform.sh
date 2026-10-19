@@ -15,7 +15,7 @@ readonly terraform_bin="${TERRAFORM_BIN:-terraform}";
 ##
 # Set Script Version
 ##
-readonly script_ver='2.3.0';
+readonly script_ver='2.4.0';
 
 ##
 # Standardised failure function
