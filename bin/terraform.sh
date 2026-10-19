@@ -43,7 +43,7 @@ Usage: ${0} \\
   -b/--bucket-prefix [bucket_prefix] \\
   -c/--component     [component_name] \\
   -e/--environment   [environment] \\
-  -g/--group         [group] (optional, comma-delimited for multiple) \
+  -g/--group         [group] (optional, comma-delimited for multiple) \\
   -i/--build-id      [build_id] (optional) \\
   -l/--lockfile      [mode] \\
   -p/--project       [project] \\
